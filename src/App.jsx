@@ -1,10 +1,25 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import logo from './assets/logo-one.png';
 
 const CONTACTS = [
   { state: 'SC', phone: '47 997371566' },
   { state: 'SP', phone: '11 917070012' },
   { state: 'PR', phone: '41 988071766' },
+];
+
+const BURST_PARTICLES = [
+  { x: '-88px', y: '-94px', rotate: '-22deg', delay: '0ms', color: '#ffca3a' },
+  { x: '-60px', y: '-118px', rotate: '18deg', delay: '20ms', color: '#ffffff' },
+  { x: '-24px', y: '-104px', rotate: '-38deg', delay: '60ms', color: '#f7a823' },
+  { x: '12px', y: '-126px', rotate: '24deg', delay: '40ms', color: '#ffc64a' },
+  { x: '42px', y: '-108px', rotate: '-18deg', delay: '80ms', color: '#ffffff' },
+  { x: '76px', y: '-88px', rotate: '34deg', delay: '30ms', color: '#f7a823' },
+  { x: '-102px', y: '-52px', rotate: '28deg', delay: '100ms', color: '#ffffff' },
+  { x: '98px', y: '-54px', rotate: '-28deg', delay: '90ms', color: '#ffca3a' },
+  { x: '-72px', y: '-18px', rotate: '42deg', delay: '120ms', color: '#f7a823' },
+  { x: '70px', y: '-14px', rotate: '-42deg', delay: '70ms', color: '#ffffff' },
+  { x: '-32px', y: '-70px', rotate: '12deg', delay: '110ms', color: '#ffca3a' },
+  { x: '34px', y: '-68px', rotate: '-12deg', delay: '50ms', color: '#f7a823' },
 ];
 
 const INITIAL_FORM = {
@@ -76,6 +91,15 @@ function buildRecord(formValues) {
   };
 }
 
+function persistRecord(record) {
+  try {
+    const current = JSON.parse(localStorage.getItem('one-fianca-history') || '[]');
+    localStorage.setItem('one-fianca-history', JSON.stringify([record, ...current].slice(0, 40)));
+  } catch {
+    // Local persistence is optional; ignore quota/storage errors.
+  }
+}
+
 async function saveFile(fileName, content, mimeType) {
   const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
 
@@ -103,7 +127,9 @@ async function saveFile(fileName, content, mimeType) {
   URL.revokeObjectURL(url);
 }
 
-async function saveFilesTogether(baseName, pdfBlob, record) {
+async function savePdfRecord(baseName, pdfBlob, record) {
+  persistRecord(record);
+
   if ('showDirectoryPicker' in window) {
     const directoryHandle = await window.showDirectoryPicker();
     const pdfHandle = await directoryHandle.getFileHandle(`${baseName}.pdf`, { create: true });
@@ -116,63 +142,109 @@ async function saveFilesTogether(baseName, pdfBlob, record) {
     const jsonWritable = await jsonHandle.createWritable();
     await jsonWritable.write(JSON.stringify(record, null, 2));
     await jsonWritable.close();
-    return 'Arquivos salvos na pasta escolhida.';
+    return;
   }
 
   await saveFile(`${baseName}.pdf`, pdfBlob, 'application/pdf');
-  await saveFile(`${baseName}.json`, JSON.stringify(record, null, 2), 'application/json');
-  return 'Arquivos baixados. Neste navegador, o local final depende da pasta padrão de downloads.';
 }
 
 export default function App() {
   const [formValues, setFormValues] = useState(INITIAL_FORM);
   const [status, setStatus] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationKey, setCelebrationKey] = useState(0);
   const previewRef = useRef(null);
+  const celebrationTimeoutRef = useRef(null);
 
   const record = buildRecord(formValues);
   const fileBaseName =
     sanitizeFileName(`${record.applicantName || 'cadastro'}-${record.roleName || record.roleLabel}`) ||
     'analise-credito-one';
 
+  const rentLine = record.rentAmount
+    ? `${record.rentAmountFormatted} taxas inclusas`
+    : 'Informe o valor do aluguel';
+  const payment5TotalText = record.payment5Total ? record.payment5TotalFormatted : 'A informar';
+  const payment12TotalText = record.payment12Total ? record.payment12TotalFormatted : 'A informar';
+  const payment5InstallmentText = record.payment5Total
+    ? `5x de ${record.payment5InstallmentFormatted}`
+    : '5 parcelas';
+  const payment12InstallmentText = record.payment12Total
+    ? `12x de ${record.payment12InstallmentFormatted}`
+    : '12 parcelas';
+
+  useEffect(() => {
+    return () => {
+      if (celebrationTimeoutRef.current) {
+        window.clearTimeout(celebrationTimeoutRef.current);
+      }
+    };
+  }, []);
+
   function handleFieldChange(event) {
     const { name, value } = event.target;
     setFormValues((current) => ({ ...current, [name]: value }));
   }
 
+  function triggerCelebration() {
+    setCelebrationKey((current) => current + 1);
+    setShowCelebration(true);
+
+    if (celebrationTimeoutRef.current) {
+      window.clearTimeout(celebrationTimeoutRef.current);
+    }
+
+    celebrationTimeoutRef.current = window.setTimeout(() => {
+      setShowCelebration(false);
+    }, 1500);
+  }
+
   async function handleGenerateFiles() {
-    if (!record.roleName || !record.applicantName || !record.propertyAddress) {
-      setStatus('Preencha nome do corretor/imobiliária, cadastro e endereço do imóvel.');
+    if (
+      !record.roleName ||
+      !record.applicantName ||
+      !record.propertyAddress ||
+      !record.rentAmount ||
+      !record.payment5Total ||
+      !record.payment12Total
+    ) {
+      setStatus('Preencha os campos obrigatórios.');
       return;
     }
 
     try {
       setIsGenerating(true);
-      setStatus('Gerando PDF e JSON...');
+      setStatus('Gerando...');
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
         import('html2canvas'),
         import('jspdf'),
       ]);
 
+      const posterWidth = previewRef.current.offsetWidth;
+      const posterHeight = previewRef.current.offsetHeight;
+
       const canvas = await html2canvas(previewRef.current, {
-        scale: 2,
-        backgroundColor: '#050b24',
+        scale: 1.6,
+        backgroundColor: '#060d28',
         useCORS: true,
       });
 
       const pdf = new jsPDF({
         orientation: 'portrait',
-        unit: 'px',
-        format: [1080, 1920],
+        unit: 'pt',
+        format: [posterWidth, posterHeight],
+        compress: true,
       });
 
-      const imageData = canvas.toDataURL('image/png');
-      pdf.addImage(imageData, 'PNG', 0, 0, 1080, 1920);
+      const imageData = canvas.toDataURL('image/jpeg', 0.86);
+      pdf.addImage(imageData, 'JPEG', 0, 0, posterWidth, posterHeight, undefined, 'FAST');
 
-      const saveStatus = await saveFilesTogether(fileBaseName, pdf.output('blob'), record);
-      setStatus(saveStatus);
+      await savePdfRecord(fileBaseName, pdf.output('blob'), record);
+      setStatus('Arquivo gerado');
+      triggerCelebration();
     } catch (error) {
-      setStatus(`Não foi possível gerar os arquivos: ${error.message}`);
+      setStatus(`Não foi possível gerar o arquivo: ${error.message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -180,26 +252,14 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <section className="intro-panel">
-        <div className="intro-copy">
-          <span className="eyebrow">ONE Fiança Locatícia</span>
-          <h1>Gerador de análise de crédito com PDF para WhatsApp.</h1>
-          <p>
-            Preencha os dados, revise os valores parcelados e exporte o material em PDF e JSON
-            sem depender de backend.
-          </p>
-        </div>
-      </section>
+      <header className="app-header">
+        <span className="eyebrow">ONE FIANÇA LOCATÍCIA</span>
+      </header>
 
       <main className="workspace">
         <section className="form-panel">
-          <div className="panel-header">
-            <h2>Dados da análise</h2>
-            <p>O layout já sai ajustado para envio vertical no WhatsApp.</p>
-          </div>
-
           <div className="form-grid">
-            <label>
+            <label className="field field-type">
               Tipo
               <select name="roleType" value={formValues.roleType} onChange={handleFieldChange}>
                 <option value="corretor">Corretor</option>
@@ -207,7 +267,7 @@ export default function App() {
               </select>
             </label>
 
-            <label>
+            <label className="field field-role">
               {record.roleLabel}
               <input
                 name="roleName"
@@ -217,7 +277,7 @@ export default function App() {
               />
             </label>
 
-            <label>
+            <label className="field field-full">
               Nome do cadastro aprovado
               <input
                 name="applicantName"
@@ -227,18 +287,18 @@ export default function App() {
               />
             </label>
 
-            <label className="span-2">
+            <label className="field field-full">
               Endereço do imóvel
               <textarea
                 name="propertyAddress"
                 value={formValues.propertyAddress}
                 onChange={handleFieldChange}
-                rows="3"
+                rows="2"
                 placeholder="Av. Juriti, 235 apto 42, Moema, São Paulo, SP 04520-000"
               />
             </label>
 
-            <label>
+            <label className="field field-third">
               Valor do aluguel
               <input
                 name="rentAmount"
@@ -249,8 +309,8 @@ export default function App() {
               />
             </label>
 
-            <label>
-              Total à vista ou em 5x
+            <label className="field field-third">
+              Total à vista ou 5x
               <input
                 name="payment5Total"
                 value={formValues.payment5Total}
@@ -260,7 +320,7 @@ export default function App() {
               />
             </label>
 
-            <label>
+            <label className="field field-third">
               Total em 12x
               <input
                 name="payment12Total"
@@ -272,71 +332,101 @@ export default function App() {
             </label>
           </div>
 
-          <div className="review-card">
-            <h3>Revisão automática</h3>
-            <div className="review-grid">
-              <div>
-                <span>5 parcelas</span>
-                <strong>{record.payment5InstallmentFormatted}</strong>
-                <small>Total: {record.payment5TotalFormatted}</small>
-              </div>
-              <div>
-                <span>12 parcelas</span>
-                <strong>{record.payment12InstallmentFormatted}</strong>
-                <small>Total: {record.payment12TotalFormatted}</small>
-              </div>
+          <div className="review-strip">
+            <div className="review-chip">
+              <span>5x</span>
+              <strong>{record.payment5Total ? record.payment5InstallmentFormatted : 'A informar'}</strong>
+              <small>{payment5TotalText}</small>
+            </div>
+
+            <div className="review-chip">
+              <span>12x</span>
+              <strong>{record.payment12Total ? record.payment12InstallmentFormatted : 'A informar'}</strong>
+              <small>{payment12TotalText}</small>
             </div>
           </div>
 
           <div className="actions">
-            <button type="button" className="primary-button" onClick={handleGenerateFiles} disabled={isGenerating}>
-              {isGenerating ? 'Gerando...' : 'Gerar PDF + JSON'}
-            </button>
-            <p>{status || 'O JSON acompanha os mesmos dados do PDF para histórico interno.'}</p>
+            <div className="action-stack">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={handleGenerateFiles}
+                disabled={isGenerating}
+              >
+                {isGenerating ? 'Gerando...' : 'Gerar PDF'}
+              </button>
+
+              <span className={`status-text ${status ? 'is-visible' : ''}`}>{status}</span>
+
+              {showCelebration ? <Celebration key={celebrationKey} /> : null}
+            </div>
           </div>
         </section>
 
         <section className="preview-panel">
-          <div className="phone-frame">
+          <div className="preview-wrap">
             <div className="poster" ref={previewRef}>
-              <div className="poster-noise" />
+              <div className="poster-glow" />
               <img className="poster-logo" src={logo} alt="Logo ONE Fiança Locatícia" />
 
-              <div className="title-banner">
-                <span>ANÁLISE de CRÉDITO</span>
-                <strong>ONE</strong>
-                <span>FIANÇA LOCATÍCIA</span>
-              </div>
+              <div className="poster-title">ANÁLISE DE CRÉDITO APROVADA</div>
 
-              <div className="info-card">
-                <InfoRow label={record.roleLabel} value={record.roleName || `Nome do ${record.roleLabel.toLowerCase()}`} />
-                <InfoRow label="Cadastro One Aprovado em nome de" value={record.applicantName || 'Nome do cliente'} />
-                <InfoRow label="Imóvel residencial" value={record.propertyAddress || 'Endereço completo do imóvel'} />
-                <InfoRow label="Valor aluguel" value={`${record.rentAmountFormatted} taxas inclusas`} />
+              <div className="poster-info-card">
+                <PosterRow
+                  icon="user"
+                  value={`${record.roleLabel}: ${record.roleName || `Nome do ${record.roleLabel.toLowerCase()}`}`}
+                />
+                <PosterRow
+                  icon="shield"
+                  eyebrow="Cadastro aprovado em nome de"
+                  value={record.applicantName || 'Nome do cliente'}
+                />
+                <PosterRow
+                  icon="home"
+                  eyebrow="Imóvel residencial"
+                  value={record.propertyAddress || 'Endereço completo do imóvel'}
+                />
+                <PosterRow icon="money" eyebrow="Valor aluguel" value={rentLine} />
               </div>
 
               <div className="payment-card">
-                <div className="section-title">FORMAS DE PAGAMENTO</div>
-                <PaymentRow
-                  text="Pagamento à vista ou em 5 vezes sem acréscimo no cartão de crédito"
-                  total={record.payment5TotalFormatted}
-                  installment={`5x de ${record.payment5InstallmentFormatted}`}
+                <div className="payment-heading">
+                  <div className="payment-line" />
+                  <div className="payment-title">
+                    <Icon name="card" />
+                    <span>FORMAS DE PAGAMENTO</span>
+                  </div>
+                  <div className="payment-line" />
+                </div>
+
+                <PaymentItem
+                  text="À vista ou em 5x sem acréscimo no cartão:"
+                  total={payment5TotalText}
+                  detail={payment5InstallmentText}
                 />
-                <PaymentRow
-                  text="Valor para pagamento em 12 vezes no cartão de crédito"
-                  total={record.payment12TotalFormatted}
-                  installment={`12x de ${record.payment12InstallmentFormatted}`}
+                <PaymentItem
+                  text="Em 12x no cartão:"
+                  total={payment12TotalText}
+                  detail={payment12InstallmentText}
                 />
               </div>
 
-              <div className="contacts">
+              <div className="contact-bar">
                 {CONTACTS.map((contact) => (
-                  <div key={contact.state} className="contact-pill">
-                    <span>{contact.state}</span>
-                    <strong>{contact.phone}</strong>
+                  <div key={contact.state} className="contact-item">
+                    <div className="contact-icon">
+                      <Icon name="phone" />
+                    </div>
+                    <div>
+                      <span>{contact.state}</span>
+                      <strong>{contact.phone}</strong>
+                    </div>
                   </div>
                 ))}
               </div>
+
+              <div className="poster-arc" />
             </div>
           </div>
         </section>
@@ -345,21 +435,99 @@ export default function App() {
   );
 }
 
-function InfoRow({ label, value }) {
+function PosterRow({ icon, eyebrow, value }) {
   return (
-    <div className="info-row">
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className="poster-row">
+      <div className="poster-row-icon">
+        <Icon name={icon} />
+      </div>
+      <div className="poster-row-text">
+        {eyebrow ? <span>{eyebrow}</span> : null}
+        <strong>{value}</strong>
+      </div>
     </div>
   );
 }
 
-function PaymentRow({ text, total, installment }) {
+function PaymentItem({ text, total, detail }) {
   return (
-    <div className="payment-row">
-      <p>{text}</p>
-      <strong>{total}</strong>
-      <span>{installment}</span>
+    <div className="payment-item">
+      <div className="payment-bullet" />
+      <div className="payment-copy">
+        <p>
+          {text} <strong>{total}</strong>
+        </p>
+        <span>{detail}</span>
+      </div>
     </div>
+  );
+}
+
+function Celebration() {
+  return (
+    <div className="celebration" aria-hidden="true">
+      {BURST_PARTICLES.map((particle, index) => (
+        <span
+          key={`${particle.x}-${particle.y}-${index}`}
+          className="confetti"
+          style={{
+            '--x': particle.x,
+            '--y': particle.y,
+            '--rotate': particle.rotate,
+            '--delay': particle.delay,
+            '--color': particle.color,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Icon({ name }) {
+  const icons = {
+    user: (
+      <>
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M5 19c0-3.2 3.1-5.5 7-5.5s7 2.3 7 5.5" />
+      </>
+    ),
+    shield: (
+      <>
+        <path d="M12 3.5 18 6v5.7c0 4.3-2.8 6.9-6 8.3-3.2-1.4-6-4-6-8.3V6l6-2.5Z" />
+        <path d="m9.5 12.4 1.7 1.7 3.6-4.2" />
+      </>
+    ),
+    home: (
+      <>
+        <path d="M4.5 11.5 12 5l7.5 6.5" />
+        <path d="M7 10.5V19h10v-8.5" />
+        <path d="M10 19v-4.5h4V19" />
+      </>
+    ),
+    money: (
+      <>
+        <circle cx="12" cy="12" r="7.5" />
+        <path d="M14.6 8.7c-.6-.5-1.5-.8-2.4-.8-1.8 0-3 .9-3 2.2 0 1.2.9 1.9 3.2 2.4 2 .4 2.9 1 2.9 2.3 0 1.4-1.2 2.4-3.1 2.4-1.1 0-2.3-.3-3.2-1" />
+        <path d="M12 7v10" />
+      </>
+    ),
+    card: (
+      <>
+        <rect x="3.5" y="6.5" width="17" height="11" rx="2" />
+        <path d="M3.5 10.5h17" />
+        <path d="M16 14.5h2.5" />
+      </>
+    ),
+    phone: (
+      <>
+        <path d="M8 5.5h2.6l1.2 3.3-1.7 1.7a14.7 14.7 0 0 0 3.2 3.7 14.6 14.6 0 0 0 3.7 3.1l1.7-1.6 3.3 1.2v2.6c0 .8-.7 1.5-1.5 1.5-8.7 0-15.8-7.1-15.8-15.8 0-.8.7-1.5 1.5-1.5Z" />
+      </>
+    ),
+  };
+
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      {icons[name]}
+    </svg>
   );
 }
