@@ -1,0 +1,443 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Manrope:wght@400;500;700;800&display=swap');
+
+:root {
+  font-family: 'Manrope', sans-serif;
+  color: #f7f8fb;
+  background:
+    radial-gradient(circle at top, rgba(37, 62, 143, 0.48), transparent 36%),
+    linear-gradient(180deg, #0a143f 0%, #050b24 42%, #020513 100%);
+  color-scheme: dark;
+  --bg-deep: #050b24;
+  --bg-panel: rgba(8, 17, 53, 0.88);
+  --line-soft: rgba(255, 255, 255, 0.08);
+  --line-gold: rgba(247, 188, 53, 0.8);
+  --text-main: #f9fbff;
+  --text-muted: #aebbdc;
+  --gold: #ffca3a;
+  --gold-strong: #f7a823;
+  --silver: #dfe5f2;
+  --shadow: 0 22px 80px rgba(0, 0, 0, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.intro-panel {
+  max-width: 1400px;
+  margin: 0 auto 24px;
+  padding: 28px 32px;
+  border: 1px solid var(--line-soft);
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(15, 34, 92, 0.92), rgba(4, 10, 28, 0.9));
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.intro-panel::after {
+  content: '';
+  position: absolute;
+  inset: auto -120px -80px auto;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(255, 202, 58, 0.3), transparent 62%);
+}
+
+.eyebrow {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: var(--gold);
+  font-size: 0.85rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.intro-copy h1 {
+  margin: 0 0 10px;
+  max-width: 720px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(2.6rem, 4vw, 4.8rem);
+  line-height: 0.92;
+  letter-spacing: 0.02em;
+}
+
+.intro-copy p {
+  margin: 0;
+  max-width: 720px;
+  color: var(--text-muted);
+  font-size: 1.05rem;
+}
+
+.workspace {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(320px, 480px) minmax(320px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.form-panel,
+.preview-panel {
+  border: 1px solid var(--line-soft);
+  border-radius: 28px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+}
+
+.form-panel {
+  padding: 28px;
+}
+
+.panel-header h2,
+.review-card h3 {
+  margin: 0 0 6px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+}
+
+.panel-header p,
+.actions p,
+.review-card small {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.form-grid {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-grid label {
+  display: grid;
+  gap: 8px;
+  color: var(--silver);
+  font-size: 0.95rem;
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 202, 58, 0.2);
+  border-radius: 16px;
+  background: rgba(4, 10, 28, 0.85);
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.form-grid input:focus,
+.form-grid select:focus,
+.form-grid textarea:focus {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+
+.review-card {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid rgba(247, 188, 53, 0.22);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(10, 20, 63, 0.84), rgba(4, 10, 28, 0.9));
+}
+
+.review-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.review-grid div {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line-soft);
+}
+
+.review-grid span,
+.payment-row span {
+  display: block;
+  color: var(--text-muted);
+}
+
+.review-grid strong {
+  display: block;
+  margin: 6px 0 4px;
+  font-size: 1.35rem;
+  color: var(--gold);
+}
+
+.actions {
+  margin-top: 24px;
+  display: grid;
+  gap: 14px;
+}
+
+.primary-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 16px 22px;
+  background: linear-gradient(90deg, #f7a823 0%, #ffde59 100%);
+  color: #081235;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(247, 168, 35, 0.28);
+}
+
+.primary-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.preview-panel {
+  padding: 28px;
+}
+
+.phone-frame {
+  display: grid;
+  place-items: center;
+  padding: 10px;
+}
+
+.poster {
+  width: min(100%, 540px);
+  aspect-ratio: 9 / 16;
+  padding: 54px 42px 46px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 34px;
+  background:
+    radial-gradient(circle at top center, rgba(54, 92, 201, 0.3), transparent 32%),
+    linear-gradient(180deg, #0b1745 0%, #050b24 44%, #020513 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.45);
+}
+
+.poster::before,
+.poster::after {
+  content: '';
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border: 1px solid rgba(247, 168, 35, 0.28);
+  border-radius: 36px;
+  transform: rotate(45deg);
+  opacity: 0.35;
+}
+
+.poster::before {
+  top: -120px;
+  left: -120px;
+}
+
+.poster::after {
+  top: -120px;
+  right: -120px;
+}
+
+.poster-noise {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.02) 50%, transparent 100%),
+    radial-gradient(circle at center, rgba(255, 214, 87, 0.12), transparent 56%);
+  pointer-events: none;
+}
+
+.poster-logo {
+  display: block;
+  width: min(52%, 250px);
+  margin: 0 auto 26px;
+  position: relative;
+  z-index: 1;
+}
+
+.title-banner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 12px;
+  padding: 18px 22px;
+  border-radius: 24px;
+  border: 2px solid rgba(255, 202, 58, 0.88);
+  background: linear-gradient(180deg, rgba(19, 36, 96, 0.9), rgba(6, 13, 36, 0.96));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.title-banner span,
+.section-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(1.2rem, 3vw, 2.5rem);
+  letter-spacing: 0.02em;
+}
+
+.title-banner strong {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  color: var(--gold);
+}
+
+.info-card,
+.payment-card {
+  position: relative;
+  z-index: 1;
+  margin-top: 22px;
+  padding: 18px;
+  border-radius: 26px;
+  background: rgba(6, 13, 36, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.info-row + .info-row,
+.payment-row + .payment-row {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.info-row span {
+  display: block;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+}
+
+.info-row strong {
+  display: block;
+  margin-top: 7px;
+  font-size: clamp(1.05rem, 2.1vw, 1.6rem);
+  line-height: 1.2;
+}
+
+.payment-card {
+  border-color: rgba(247, 188, 53, 0.38);
+}
+
+.section-title {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--gold);
+  text-align: center;
+}
+
+.payment-row p {
+  margin: 0 0 8px;
+  font-size: clamp(1rem, 2vw, 1.48rem);
+  line-height: 1.24;
+}
+
+.payment-row strong {
+  display: block;
+  color: var(--gold);
+  font-size: clamp(1.3rem, 3vw, 2rem);
+}
+
+.contacts {
+  position: absolute;
+  inset: auto 42px 36px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  z-index: 1;
+}
+
+.contact-pill {
+  padding: 12px 10px;
+  border-radius: 18px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(247, 188, 53, 0.3);
+}
+
+.contact-pill span {
+  display: block;
+  color: var(--gold);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.contact-pill strong {
+  display: block;
+  margin-top: 6px;
+  font-size: clamp(0.95rem, 1.9vw, 1.2rem);
+}
+
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-panel {
+    order: -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 18px;
+  }
+
+  .intro-panel,
+  .form-panel,
+  .preview-panel {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .form-grid,
+  .review-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: auto;
+  }
+
+  .poster {
+    padding: 42px 24px 34px;
+    border-radius: 28px;
+  }
+
+  .contacts {
+    inset: auto 24px 24px;
+    grid-template-columns: 1fr;
+  }
+}
