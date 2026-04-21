@@ -32,6 +32,8 @@ const INITIAL_FORM = {
   payment12Total: '',
 };
 
+const CURRENCY_FIELDS = new Set(['rentAmount', 'payment5Total', 'payment12Total']);
+
 function toNumber(value) {
   if (!value) {
     return 0;
@@ -52,6 +54,46 @@ function formatCurrency(value) {
     style: 'currency',
     currency: 'BRL',
   }).format(value || 0);
+}
+
+function formatCurrencyInput(value) {
+  const cleaned = String(value).replace(/[^\d,]/g, '');
+
+  if (!cleaned) {
+    return '';
+  }
+
+  const [integerPartRaw = '', decimalRaw = ''] = cleaned.split(',');
+  const integerDigits = integerPartRaw.replace(/\D/g, '');
+  const integerValue = integerDigits ? Number(integerDigits) : 0;
+  const integerFormatted = new Intl.NumberFormat('pt-BR', {
+    maximumFractionDigits: 0,
+  }).format(integerValue);
+
+  if (!cleaned.includes(',')) {
+    return integerFormatted;
+  }
+
+  return `${integerFormatted},${decimalRaw.replace(/\D/g, '').slice(0, 2)}`;
+}
+
+function formatCurrencyInputOnBlur(value) {
+  const numericValue = toNumber(value);
+  return numericValue ? formatCurrency(numericValue).replace('R$', '').trim() : '';
+}
+
+function formatPhone(value) {
+  const digits = String(value).replace(/\D/g, '');
+
+  if (digits.length === 11) {
+    return digits.replace(/(\d{2})(\d{5})(\d{4})/, '$1 $2-$3');
+  }
+
+  if (digits.length === 10) {
+    return digits.replace(/(\d{2})(\d{4})(\d{4})/, '$1 $2-$3');
+  }
+
+  return value;
 }
 
 function sanitizeFileName(value) {
@@ -87,7 +129,7 @@ function buildRecord(formValues) {
     payment12TotalFormatted: formatCurrency(payment12Total),
     payment12Installment: payment12Total / 12,
     payment12InstallmentFormatted: formatCurrency(payment12Total / 12),
-    contacts: CONTACTS,
+    contacts: CONTACTS.map((contact) => ({ ...contact, phoneFormatted: formatPhone(contact.phone) })),
   };
 }
 
@@ -200,7 +242,26 @@ export default function App() {
 
   function handleFieldChange(event) {
     const { name, value } = event.target;
+
+    if (CURRENCY_FIELDS.has(name)) {
+      setFormValues((current) => ({ ...current, [name]: formatCurrencyInput(value) }));
+      return;
+    }
+
     setFormValues((current) => ({ ...current, [name]: value }));
+  }
+
+  function handleFieldBlur(event) {
+    const { name, value } = event.target;
+
+    if (!CURRENCY_FIELDS.has(name)) {
+      return;
+    }
+
+    setFormValues((current) => ({
+      ...current,
+      [name]: formatCurrencyInputOnBlur(value),
+    }));
   }
 
   function triggerCelebration() {
@@ -332,6 +393,7 @@ export default function App() {
                 name="rentAmount"
                 value={formValues.rentAmount}
                 onChange={handleFieldChange}
+                onBlur={handleFieldBlur}
                 inputMode="decimal"
                 placeholder="14.000,00"
               />
@@ -343,6 +405,7 @@ export default function App() {
                 name="payment5Total"
                 value={formValues.payment5Total}
                 onChange={handleFieldChange}
+                onBlur={handleFieldBlur}
                 inputMode="decimal"
                 placeholder="16.800,00"
               />
@@ -354,6 +417,7 @@ export default function App() {
                 name="payment12Total"
                 value={formValues.payment12Total}
                 onChange={handleFieldChange}
+                onBlur={handleFieldBlur}
                 inputMode="decimal"
                 placeholder="19.320,00"
               />
@@ -362,15 +426,17 @@ export default function App() {
 
           <div className="review-strip">
             <div className="review-chip">
-              <span>5x</span>
-              <strong>{record.payment5Total ? record.payment5InstallmentFormatted : 'A informar'}</strong>
-              <small>{payment5TotalText}</small>
+              <span>À vista</span>
+              <strong>{payment5TotalText}</strong>
+              <small>
+                {record.payment5Total ? `ou em 5x de ${record.payment5InstallmentFormatted} no cartão` : 'ou em 5x'}
+              </small>
             </div>
 
             <div className="review-chip">
-              <span>12x</span>
+              <span>Em 12x</span>
               <strong>{record.payment12Total ? record.payment12InstallmentFormatted : 'A informar'}</strong>
-              <small>{payment12TotalText}</small>
+              <small>{record.payment12Total ? `total de ${payment12TotalText}` : 'total a informar'}</small>
             </div>
           </div>
 
@@ -453,14 +519,30 @@ export default function App() {
                 </div>
 
                 <PaymentItem
-                  text="À vista ou em 5x sem acréscimo no cartão:"
-                  total={payment5TotalText}
-                  detail={payment5InstallmentText}
+                  primary={
+                    <>
+                      À vista <strong>{payment5TotalText}</strong>
+                    </>
+                  }
+                  secondary={
+                    <>
+                      ou em 5x de <strong>{record.payment5Installment ? record.payment5InstallmentFormatted : 'A informar'}</strong> no
+                      cartão
+                    </>
+                  }
                 />
                 <PaymentItem
-                  text="Em 12x no cartão:"
-                  total={payment12TotalText}
-                  detail={payment12InstallmentText}
+                  primary={
+                    <>
+                      Em 12x de <strong>{record.payment12Installment ? record.payment12InstallmentFormatted : 'A informar'}</strong> no
+                      cartão
+                    </>
+                  }
+                  secondary={
+                    <>
+                      total de <strong>{payment12TotalText}</strong>
+                    </>
+                  }
                 />
               </div>
 
@@ -472,7 +554,7 @@ export default function App() {
                     </div>
                     <div>
                       <span>{contact.state}</span>
-                      <strong>{contact.phone}</strong>
+                      <strong>{contact.phoneFormatted}</strong>
                     </div>
                   </div>
                 ))}
@@ -501,15 +583,13 @@ function PosterRow({ icon, eyebrow, value, tone = 'default' }) {
   );
 }
 
-function PaymentItem({ text, total, detail }) {
+function PaymentItem({ primary, secondary }) {
   return (
     <div className="payment-item">
       <div className="payment-bullet" />
       <div className="payment-copy">
-        <p>
-          {text} <strong>{total}</strong>
-        </p>
-        <span>{detail}</span>
+        <p>{primary}</p>
+        <span>{secondary}</span>
       </div>
     </div>
   );
