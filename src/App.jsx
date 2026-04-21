@@ -225,7 +225,7 @@ export default function App() {
       const posterHeight = previewRef.current.offsetHeight;
 
       const canvas = await html2canvas(previewRef.current, {
-        scale: 1.6,
+        scale: 1.35,
         backgroundColor: '#060d28',
         useCORS: true,
       });
@@ -237,7 +237,7 @@ export default function App() {
         compress: true,
       });
 
-      const imageData = canvas.toDataURL('image/jpeg', 0.86);
+      const imageData = canvas.toDataURL('image/jpeg', 0.74);
       pdf.addImage(imageData, 'JPEG', 0, 0, posterWidth, posterHeight, undefined, 'FAST');
 
       await savePdfRecord(fileBaseName, pdf.output('blob'), record);
@@ -252,12 +252,16 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <span className="eyebrow">ONE FIANÇA LOCATÍCIA</span>
-      </header>
-
       <main className="workspace">
         <section className="form-panel">
+          <div className="form-head">
+            <img src={logo} alt="Logo ONE Fiança Locatícia" className="form-head-logo" />
+            <div className="form-head-copy">
+              <span className="eyebrow">ONE FIANÇA LOCATÍCIA</span>
+              <h1>Comprovante Crédito Aprovado</h1>
+            </div>
+          </div>
+
           <div className="form-grid">
             <label className="field field-type">
               Tipo
@@ -386,8 +390,9 @@ export default function App() {
                   icon="home"
                   eyebrow="Imóvel residencial"
                   value={record.propertyAddress || 'Endereço completo do imóvel'}
+                  tone="soft"
                 />
-                <PosterRow icon="money" eyebrow="Valor aluguel" value={rentLine} />
+                <PosterRow icon="money" eyebrow="Valor aluguel" value={rentLine} tone="soft" />
               </div>
 
               <div className="payment-card">
@@ -435,13 +440,13 @@ export default function App() {
   );
 }
 
-function PosterRow({ icon, eyebrow, value }) {
+function PosterRow({ icon, eyebrow, value, tone = 'default' }) {
   return (
     <div className="poster-row">
       <div className="poster-row-icon">
         <Icon name={icon} />
       </div>
-      <div className="poster-row-text">
+      <div className={`poster-row-text poster-row-text-${tone}`}>
         {eyebrow ? <span>{eyebrow}</span> : null}
         <strong>{value}</strong>
       </div>
