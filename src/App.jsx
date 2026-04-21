@@ -547,7 +547,7 @@ export default function App() {
               </div>
 
               <div className="contact-bar">
-                {CONTACTS.map((contact) => (
+                {record.contacts.map((contact) => (
                   <div key={contact.state} className="contact-item">
                     <div className="contact-icon">
                       <Icon name="phone" />
