@@ -127,17 +127,32 @@ async function saveFile(fileName, content, mimeType) {
   URL.revokeObjectURL(url);
 }
 
-async function savePdfRecord(baseName, pdfBlob, record) {
+function canvasToBlob(canvas, mimeType, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+        return;
+      }
+
+      reject(new Error('Falha ao gerar o arquivo.'));
+    }, mimeType, quality);
+  });
+}
+
+async function saveOutputRecord(baseName, fileBlob, extension, mimeType, record) {
   persistRecord(record);
 
   if ('showDirectoryPicker' in window) {
     const directoryHandle = await window.showDirectoryPicker();
-    const pdfHandle = await directoryHandle.getFileHandle(`${baseName}.pdf`, { create: true });
+    const fileHandle = await directoryHandle.getFileHandle(`${baseName}.${extension}`, {
+      create: true,
+    });
     const jsonHandle = await directoryHandle.getFileHandle(`${baseName}.json`, { create: true });
 
-    const pdfWritable = await pdfHandle.createWritable();
-    await pdfWritable.write(pdfBlob);
-    await pdfWritable.close();
+    const fileWritable = await fileHandle.createWritable();
+    await fileWritable.write(fileBlob);
+    await fileWritable.close();
 
     const jsonWritable = await jsonHandle.createWritable();
     await jsonWritable.write(JSON.stringify(record, null, 2));
@@ -145,11 +160,12 @@ async function savePdfRecord(baseName, pdfBlob, record) {
     return;
   }
 
-  await saveFile(`${baseName}.pdf`, pdfBlob, 'application/pdf');
+  await saveFile(`${baseName}.${extension}`, fileBlob, mimeType);
 }
 
 export default function App() {
   const [formValues, setFormValues] = useState(INITIAL_FORM);
+  const [exportFormat, setExportFormat] = useState('jpg');
   const [status, setStatus] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -223,25 +239,33 @@ export default function App() {
 
       const posterWidth = previewRef.current.offsetWidth;
       const posterHeight = previewRef.current.offsetHeight;
+      const scale = exportFormat === 'jpg' ? 1.9 : 1.55;
 
       const canvas = await html2canvas(previewRef.current, {
-        scale: 1.35,
-        backgroundColor: '#060d28',
+        scale,
+        backgroundColor: '#081235',
         useCORS: true,
       });
 
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'pt',
-        format: [posterWidth, posterHeight],
-        compress: true,
-      });
+      if (exportFormat === 'jpg') {
+        const jpgBlob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
+        await saveOutputRecord(fileBaseName, jpgBlob, 'jpg', 'image/jpeg', record);
+        setStatus('Imagem gerada');
+      } else {
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'pt',
+          format: [posterWidth, posterHeight],
+          compress: true,
+        });
 
-      const imageData = canvas.toDataURL('image/jpeg', 0.74);
-      pdf.addImage(imageData, 'JPEG', 0, 0, posterWidth, posterHeight, undefined, 'FAST');
+        const imageData = canvas.toDataURL('image/png');
+        pdf.addImage(imageData, 'PNG', 0, 0, posterWidth, posterHeight, undefined, 'FAST');
 
-      await savePdfRecord(fileBaseName, pdf.output('blob'), record);
-      setStatus('Arquivo gerado');
+        await saveOutputRecord(fileBaseName, pdf.output('blob'), 'pdf', 'application/pdf', record);
+        setStatus('PDF gerado');
+      }
+
       triggerCelebration();
     } catch (error) {
       setStatus(`Não foi possível gerar o arquivo: ${error.message}`);
@@ -352,16 +376,39 @@ export default function App() {
 
           <div className="actions">
             <div className="action-stack">
+              <div className="format-switch" role="tablist" aria-label="Formato de saída">
+                <button
+                  type="button"
+                  className={`format-chip ${exportFormat === 'jpg' ? 'is-active' : ''}`}
+                  onClick={() => setExportFormat('jpg')}
+                >
+                  JPG
+                </button>
+                <button
+                  type="button"
+                  className={`format-chip ${exportFormat === 'pdf' ? 'is-active' : ''}`}
+                  onClick={() => setExportFormat('pdf')}
+                >
+                  PDF
+                </button>
+              </div>
+
               <button
                 type="button"
                 className="primary-button"
                 onClick={handleGenerateFiles}
                 disabled={isGenerating}
               >
-                {isGenerating ? 'Gerando...' : 'Gerar PDF'}
+                {isGenerating ? 'Gerando...' : exportFormat === 'jpg' ? 'Gerar JPG' : 'Gerar PDF'}
               </button>
 
               <span className={`status-text ${status ? 'is-visible' : ''}`}>{status}</span>
+
+              <small className="export-hint">
+                {exportFormat === 'jpg'
+                  ? 'JPG recomendado para envio no WhatsApp.'
+                  : 'PDF para arquivo e impressão.'}
+              </small>
 
               {showCelebration ? <Celebration key={celebrationKey} /> : null}
             </div>
