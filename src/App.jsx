@@ -26,13 +26,21 @@ const INITIAL_FORM = {
   roleType: 'corretor',
   roleName: '',
   applicantName: '',
-  propertyAddress: '',
+  propertyStreet: '',
+  propertyNeighborhood: '',
+  propertyCity: '',
+  propertyState: '',
+  propertyZip: '',
   rentAmount: '',
   payment5Total: '',
   payment12Total: '',
 };
 
 const CURRENCY_FIELDS = new Set(['rentAmount', 'payment5Total', 'payment12Total']);
+
+function joinParts(parts, separator = ', ') {
+  return parts.map((item) => item?.trim()).filter(Boolean).join(separator);
+}
 
 function toNumber(value) {
   if (!value) {
@@ -96,6 +104,16 @@ function formatPhone(value) {
   return value;
 }
 
+function formatZip(value) {
+  const digits = String(value).replace(/\D/g, '').slice(0, 8);
+
+  if (digits.length <= 5) {
+    return digits;
+  }
+
+  return digits.replace(/(\d{5})(\d{1,3})/, '$1-$2');
+}
+
 function sanitizeFileName(value) {
   return value
     .normalize('NFD')
@@ -111,6 +129,13 @@ function buildRecord(formValues) {
   const payment12Total = toNumber(formValues.payment12Total);
   const rentAmount = toNumber(formValues.rentAmount);
   const roleLabel = formValues.roleType === 'imobiliaria' ? 'Imobiliária' : 'Corretor';
+  const propertyStreet = formValues.propertyStreet.trim();
+  const propertyNeighborhood = formValues.propertyNeighborhood.trim();
+  const propertyCity = formValues.propertyCity.trim();
+  const propertyState = formValues.propertyState.trim().toUpperCase();
+  const propertyZip = formValues.propertyZip.trim();
+  const propertyLine1 = joinParts([propertyStreet, propertyNeighborhood]);
+  const propertyLine2 = joinParts([propertyCity, propertyState, propertyZip]);
 
   return {
     createdAt: new Date().toISOString(),
@@ -118,7 +143,14 @@ function buildRecord(formValues) {
     roleLabel,
     roleName: formValues.roleName.trim(),
     applicantName: formValues.applicantName.trim(),
-    propertyAddress: formValues.propertyAddress.trim(),
+    propertyStreet,
+    propertyNeighborhood,
+    propertyCity,
+    propertyState,
+    propertyZip,
+    propertyLine1,
+    propertyLine2,
+    propertyAddress: [propertyLine1, propertyLine2].filter(Boolean).join('\n'),
     rentAmount,
     rentAmountFormatted: formatCurrency(rentAmount),
     payment5Total,
@@ -248,6 +280,19 @@ export default function App() {
       return;
     }
 
+    if (name === 'propertyState') {
+      setFormValues((current) => ({
+        ...current,
+        [name]: value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 2),
+      }));
+      return;
+    }
+
+    if (name === 'propertyZip') {
+      setFormValues((current) => ({ ...current, [name]: formatZip(value) }));
+      return;
+    }
+
     setFormValues((current) => ({ ...current, [name]: value }));
   }
 
@@ -281,7 +326,11 @@ export default function App() {
     if (
       !record.roleName ||
       !record.applicantName ||
-      !record.propertyAddress ||
+      !record.propertyStreet ||
+      !record.propertyNeighborhood ||
+      !record.propertyCity ||
+      !record.propertyState ||
+      !record.propertyZip ||
       !record.rentAmount ||
       !record.payment5Total ||
       !record.payment12Total
@@ -377,13 +426,54 @@ export default function App() {
             </label>
 
             <label className="field field-full">
-              Endereço do imóvel
-              <textarea
-                name="propertyAddress"
-                value={formValues.propertyAddress}
+              Endereço completo
+              <input
+                name="propertyStreet"
+                value={formValues.propertyStreet}
                 onChange={handleFieldChange}
-                rows="2"
-                placeholder="Av. Juriti, 235 apto 42, Moema, São Paulo, SP 04520-000"
+                placeholder="Alameda Ipê, 328 apto 237"
+              />
+            </label>
+
+            <label className="field field-neighborhood">
+              Bairro
+              <input
+                name="propertyNeighborhood"
+                value={formValues.propertyNeighborhood}
+                onChange={handleFieldChange}
+                placeholder="Vila Ilda"
+              />
+            </label>
+
+            <label className="field field-city">
+              Cidade
+              <input
+                name="propertyCity"
+                value={formValues.propertyCity}
+                onChange={handleFieldChange}
+                placeholder="São Paulo"
+              />
+            </label>
+
+            <label className="field field-state">
+              Estado
+              <input
+                name="propertyState"
+                value={formValues.propertyState}
+                onChange={handleFieldChange}
+                placeholder="SP"
+                maxLength="2"
+              />
+            </label>
+
+            <label className="field field-zip">
+              CEP
+              <input
+                name="propertyZip"
+                value={formValues.propertyZip}
+                onChange={handleFieldChange}
+                inputMode="numeric"
+                placeholder="04059-005"
               />
             </label>
 
@@ -501,8 +591,8 @@ export default function App() {
                 />
                 <PosterRow
                   icon="home"
-                  eyebrow="Imóvel residencial"
-                  value={record.propertyAddress || 'Endereço completo do imóvel'}
+                  eyebrow="Dados do Imóvel"
+                  value={record.propertyAddress || 'Endereço do imóvel'}
                   tone="soft"
                 />
                 <PosterRow icon="money" eyebrow="Valor aluguel" value={rentLine} tone="soft" />
@@ -519,30 +609,14 @@ export default function App() {
                 </div>
 
                 <PaymentItem
-                  primary={
-                    <>
-                      À vista <strong>{payment5TotalText}</strong>
-                    </>
-                  }
-                  secondary={
-                    <>
-                      ou em 5x de <strong>{record.payment5Installment ? record.payment5InstallmentFormatted : 'A informar'}</strong> no
-                      cartão
-                    </>
-                  }
+                  primary={`À vista ${payment5TotalText} ou em 5x de ${
+                    record.payment5Installment ? record.payment5InstallmentFormatted : 'A informar'
+                  } no cartão`}
                 />
                 <PaymentItem
-                  primary={
-                    <>
-                      Em 12x de <strong>{record.payment12Installment ? record.payment12InstallmentFormatted : 'A informar'}</strong> no
-                      cartão
-                    </>
-                  }
-                  secondary={
-                    <>
-                      total de <strong>{payment12TotalText}</strong>
-                    </>
-                  }
+                  primary={`Em 12x de ${
+                    record.payment12Installment ? record.payment12InstallmentFormatted : 'A informar'
+                  } no cartão, total de ${payment12TotalText}`}
                 />
               </div>
 
@@ -552,7 +626,7 @@ export default function App() {
                     <div className="contact-icon">
                       <Icon name="phone" />
                     </div>
-                    <div>
+                    <div className="contact-copy">
                       <span>{contact.state}</span>
                       <strong>{contact.phoneFormatted}</strong>
                     </div>
@@ -583,13 +657,12 @@ function PosterRow({ icon, eyebrow, value, tone = 'default' }) {
   );
 }
 
-function PaymentItem({ primary, secondary }) {
+function PaymentItem({ primary }) {
   return (
     <div className="payment-item">
       <div className="payment-bullet" />
       <div className="payment-copy">
         <p>{primary}</p>
-        <span>{secondary}</span>
       </div>
     </div>
   );
