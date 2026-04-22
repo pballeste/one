@@ -145,55 +145,8 @@ textarea {
   grid-column: 1 / -1;
 }
 
-.field-pair {
-  grid-column: 1 / -1;
-}
-
-.field-pair-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.9fr) minmax(180px, 1fr);
-  gap: 12px;
-}
-
 .field-city-state {
   grid-column: span 8;
-}
-
-.field-inline-group {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 92px;
-  gap: 0;
-  border: 1px solid rgba(255, 202, 58, 0.2);
-  border-radius: 16px;
-  background: rgba(4, 10, 28, 0.92);
-  overflow: hidden;
-  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
-}
-
-.field-inline-group:focus-within {
-  border-color: rgba(255, 202, 58, 0.86);
-  box-shadow: 0 0 0 4px rgba(255, 202, 58, 0.08);
-  transform: translateY(-1px);
-}
-
-.field-inline-group input {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  transform: none;
-}
-
-.field-inline-group input:focus {
-  border-color: transparent;
-  box-shadow: none;
-  transform: none;
-}
-
-.field-inline-state {
-  border-left: 1px solid rgba(255, 202, 58, 0.18) !important;
-  text-align: center;
-  padding-inline: 12px !important;
 }
 
 .field-zip {
@@ -679,23 +632,10 @@ textarea {
 
   .field-type,
   .field-role,
-  .field-pair,
   .field-city-state,
   .field-zip,
   .field-third {
     grid-column: 1 / -1;
-  }
-
-  .field-pair-grid,
-  .field-inline-group {
-    grid-template-columns: 1fr;
-  }
-
-  .field-inline-state {
-    border-left: 0 !important;
-    border-top: 1px solid rgba(255, 202, 58, 0.18) !important;
-    text-align: left;
-    padding-inline: 16px !important;
   }
 
   .review-strip {

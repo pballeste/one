@@ -134,8 +134,8 @@ function buildRecord(formValues) {
   const propertyCity = formValues.propertyCity.trim();
   const propertyState = formValues.propertyState.trim().toUpperCase();
   const propertyZip = formValues.propertyZip.trim();
-  const propertyLine1 = joinParts([propertyStreet, propertyNeighborhood]);
-  const propertyLine2 = joinParts([propertyCity, propertyState, propertyZip]);
+  const propertyLine1 = propertyNeighborhood ? joinParts([propertyStreet, propertyNeighborhood]) : propertyStreet;
+  const propertyLine2 = propertyState ? joinParts([propertyCity, propertyState, propertyZip]) : joinParts([propertyCity, propertyZip]);
 
   return {
     createdAt: new Date().toISOString(),
@@ -327,9 +327,7 @@ export default function App() {
       !record.roleName ||
       !record.applicantName ||
       !record.propertyStreet ||
-      !record.propertyNeighborhood ||
       !record.propertyCity ||
-      !record.propertyState ||
       !record.propertyZip ||
       !record.rentAmount ||
       !record.payment5Total ||
@@ -425,44 +423,25 @@ export default function App() {
               />
             </label>
 
-            <div className="field field-full field-pair">
-              <span>Endereço e Bairro</span>
-              <div className="field-pair-grid">
-                <input
-                  name="propertyStreet"
-                  value={formValues.propertyStreet}
-                  onChange={handleFieldChange}
-                  placeholder="Alameda Ipê, 328 apto 237"
-                />
-                <input
-                  name="propertyNeighborhood"
-                  value={formValues.propertyNeighborhood}
-                  onChange={handleFieldChange}
-                  placeholder="Vila Ilda"
-                />
-              </div>
-            </div>
+            <label className="field field-full">
+              Endereço e Bairro
+              <input
+                name="propertyStreet"
+                value={formValues.propertyStreet}
+                onChange={handleFieldChange}
+                placeholder="Alameda Ipê, 328 apto 237, Vila Ilda"
+              />
+            </label>
 
-            <div className="field field-city-state">
-              <span>Cidade e Estado</span>
-              <div className="field-inline-group">
-                <input
-                  className="field-inline-city"
-                  name="propertyCity"
-                  value={formValues.propertyCity}
-                  onChange={handleFieldChange}
-                  placeholder="São Paulo"
-                />
-                <input
-                  className="field-inline-state"
-                  name="propertyState"
-                  value={formValues.propertyState}
-                  onChange={handleFieldChange}
-                  placeholder="SP"
-                  maxLength="2"
-                />
-              </div>
-            </div>
+            <label className="field field-city-state">
+              Cidade e Estado
+              <input
+                name="propertyCity"
+                value={formValues.propertyCity}
+                onChange={handleFieldChange}
+                placeholder="São Paulo, SP"
+              />
+            </label>
 
             <label className="field field-zip field-zip-compact">
               CEP
