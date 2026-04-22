@@ -425,48 +425,46 @@ export default function App() {
               />
             </label>
 
-            <label className="field field-full">
-              Endereço completo
-              <input
-                name="propertyStreet"
-                value={formValues.propertyStreet}
-                onChange={handleFieldChange}
-                placeholder="Alameda Ipê, 328 apto 237"
-              />
-            </label>
+            <div className="field field-full field-pair">
+              <span>Endereço e Bairro</span>
+              <div className="field-pair-grid">
+                <input
+                  name="propertyStreet"
+                  value={formValues.propertyStreet}
+                  onChange={handleFieldChange}
+                  placeholder="Alameda Ipê, 328 apto 237"
+                />
+                <input
+                  name="propertyNeighborhood"
+                  value={formValues.propertyNeighborhood}
+                  onChange={handleFieldChange}
+                  placeholder="Vila Ilda"
+                />
+              </div>
+            </div>
 
-            <label className="field field-neighborhood">
-              Bairro
-              <input
-                name="propertyNeighborhood"
-                value={formValues.propertyNeighborhood}
-                onChange={handleFieldChange}
-                placeholder="Vila Ilda"
-              />
-            </label>
+            <div className="field field-city-state">
+              <span>Cidade e Estado</span>
+              <div className="field-inline-group">
+                <input
+                  className="field-inline-city"
+                  name="propertyCity"
+                  value={formValues.propertyCity}
+                  onChange={handleFieldChange}
+                  placeholder="São Paulo"
+                />
+                <input
+                  className="field-inline-state"
+                  name="propertyState"
+                  value={formValues.propertyState}
+                  onChange={handleFieldChange}
+                  placeholder="SP"
+                  maxLength="2"
+                />
+              </div>
+            </div>
 
-            <label className="field field-city">
-              Cidade
-              <input
-                name="propertyCity"
-                value={formValues.propertyCity}
-                onChange={handleFieldChange}
-                placeholder="São Paulo"
-              />
-            </label>
-
-            <label className="field field-state">
-              Estado
-              <input
-                name="propertyState"
-                value={formValues.propertyState}
-                onChange={handleFieldChange}
-                placeholder="SP"
-                maxLength="2"
-              />
-            </label>
-
-            <label className="field field-zip">
+            <label className="field field-zip field-zip-compact">
               CEP
               <input
                 name="propertyZip"
