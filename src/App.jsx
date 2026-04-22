@@ -26,6 +26,8 @@ const INITIAL_FORM = {
   roleType: 'corretor',
   roleName: '',
   applicantName: '',
+  applicantDocumentType: 'cpf',
+  applicantDocument: '',
   propertyStreet: '',
   propertyNeighborhood: '',
   propertyCity: '',
@@ -114,6 +116,27 @@ function formatZip(value) {
   return digits.replace(/(\d{5})(\d{1,3})/, '$1-$2');
 }
 
+function formatDocument(value, type) {
+  const digits = String(value).replace(/\D/g, '');
+
+  if (type === 'cnpj') {
+    const limited = digits.slice(0, 14);
+
+    if (limited.length <= 2) return limited;
+    if (limited.length <= 5) return limited.replace(/(\d{2})(\d+)/, '$1.$2');
+    if (limited.length <= 8) return limited.replace(/(\d{2})(\d{3})(\d+)/, '$1.$2.$3');
+    if (limited.length <= 12) return limited.replace(/(\d{2})(\d{3})(\d{3})(\d+)/, '$1.$2.$3/$4');
+    return limited.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d+)/, '$1.$2.$3/$4-$5');
+  }
+
+  const limited = digits.slice(0, 11);
+
+  if (limited.length <= 3) return limited;
+  if (limited.length <= 6) return limited.replace(/(\d{3})(\d+)/, '$1.$2');
+  if (limited.length <= 9) return limited.replace(/(\d{3})(\d{3})(\d+)/, '$1.$2.$3');
+  return limited.replace(/(\d{3})(\d{3})(\d{3})(\d+)/, '$1.$2.$3-$4');
+}
+
 function sanitizeFileName(value) {
   return value
     .normalize('NFD')
@@ -129,6 +152,9 @@ function buildRecord(formValues) {
   const payment12Total = toNumber(formValues.payment12Total);
   const rentAmount = toNumber(formValues.rentAmount);
   const roleLabel = formValues.roleType === 'imobiliaria' ? 'Imobiliária' : 'Corretor';
+  const applicantDocumentType = formValues.applicantDocumentType === 'cnpj' ? 'cnpj' : 'cpf';
+  const applicantDocumentLabel = applicantDocumentType.toUpperCase();
+  const applicantDocumentFormatted = formatDocument(formValues.applicantDocument, applicantDocumentType);
   const propertyStreet = formValues.propertyStreet.trim();
   const propertyNeighborhood = formValues.propertyNeighborhood.trim();
   const propertyCity = formValues.propertyCity.trim();
@@ -143,6 +169,9 @@ function buildRecord(formValues) {
     roleLabel,
     roleName: formValues.roleName.trim(),
     applicantName: formValues.applicantName.trim(),
+    applicantDocumentType,
+    applicantDocumentLabel,
+    applicantDocument: applicantDocumentFormatted,
     propertyStreet,
     propertyNeighborhood,
     propertyCity,
@@ -293,6 +322,23 @@ export default function App() {
       return;
     }
 
+    if (name === 'applicantDocumentType') {
+      setFormValues((current) => ({
+        ...current,
+        applicantDocumentType: value,
+        applicantDocument: formatDocument(current.applicantDocument, value),
+      }));
+      return;
+    }
+
+    if (name === 'applicantDocument') {
+      setFormValues((current) => ({
+        ...current,
+        applicantDocument: formatDocument(value, current.applicantDocumentType),
+      }));
+      return;
+    }
+
     setFormValues((current) => ({ ...current, [name]: value }));
   }
 
@@ -326,6 +372,7 @@ export default function App() {
     if (
       !record.roleName ||
       !record.applicantName ||
+      !record.applicantDocument ||
       !record.propertyStreet ||
       !record.propertyCity ||
       !record.propertyZip ||
@@ -420,6 +467,25 @@ export default function App() {
                 value={formValues.applicantName}
                 onChange={handleFieldChange}
                 placeholder="Carlos Eduardo Costa Netto"
+              />
+            </label>
+
+            <label className="field field-type">
+              CPF ou CNPJ
+              <select name="applicantDocumentType" value={formValues.applicantDocumentType} onChange={handleFieldChange}>
+                <option value="cpf">CPF</option>
+                <option value="cnpj">CNPJ</option>
+              </select>
+            </label>
+
+            <label className="field field-role">
+              {record.applicantDocumentLabel}
+              <input
+                name="applicantDocument"
+                value={formValues.applicantDocument}
+                onChange={handleFieldChange}
+                inputMode="numeric"
+                placeholder={formValues.applicantDocumentType === 'cnpj' ? '12.345.678/0001-90' : '123.456.789-00'}
               />
             </label>
 
@@ -567,6 +633,11 @@ export default function App() {
                   value={record.applicantName || 'Nome do cliente'}
                 />
                 <PosterRow
+                  icon="document"
+                  eyebrow={record.applicantDocumentLabel}
+                  value={record.applicantDocument || `${record.applicantDocumentLabel} do cliente`}
+                />
+                <PosterRow
                   icon="home"
                   eyebrow="Dados do Imóvel"
                   value={record.propertyAddress || 'Endereço do imóvel'}
@@ -677,6 +748,15 @@ function Icon({ name }) {
       <>
         <path d="M12 3.5 18 6v5.7c0 4.3-2.8 6.9-6 8.3-3.2-1.4-6-4-6-8.3V6l6-2.5Z" />
         <path d="m9.5 12.4 1.7 1.7 3.6-4.2" />
+      </>
+    ),
+    document: (
+      <>
+        <path d="M8 3.8h6.6L18.2 7v13.2H8z" />
+        <path d="M14.4 3.8V7h3.2" />
+        <path d="M10.3 10.2h5.4" />
+        <path d="M10.3 13h5.4" />
+        <path d="M10.3 15.8h3.8" />
       </>
     ),
     home: (
