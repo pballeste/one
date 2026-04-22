@@ -123,10 +123,10 @@ function formatDocument(value, type) {
     const limited = digits.slice(0, 14);
 
     if (limited.length <= 2) return limited;
-    if (limited.length <= 5) return limited.replace(/(\d{2})(\d+)/, '$1.$2');
-    if (limited.length <= 8) return limited.replace(/(\d{2})(\d{3})(\d+)/, '$1.$2.$3');
-    if (limited.length <= 12) return limited.replace(/(\d{2})(\d{3})(\d{3})(\d+)/, '$1.$2.$3/$4');
-    return limited.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d+)/, '$1.$2.$3/$4-$5');
+    if (limited.length <= 5) return limited.replace(/^(\d{2})(\d+)/, '$1.$2');
+    if (limited.length <= 8) return limited.replace(/^(\d{2})(\d{3})(\d+)/, '$1.$2.$3');
+    if (limited.length <= 12) return limited.replace(/^(\d{2})(\d{3})(\d{3})(\d+)/, '$1.$2.$3/$4');
+    return limited.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2}).*/, '$1.$2.$3/$4-$5');
   }
 
   const limited = digits.slice(0, 11);
