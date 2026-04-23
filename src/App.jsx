@@ -34,11 +34,9 @@ const INITIAL_FORM = {
   propertyState: '',
   propertyZip: '',
   rentAmount: '',
-  payment5Total: '',
-  payment12Total: '',
 };
 
-const CURRENCY_FIELDS = new Set(['rentAmount', 'payment5Total', 'payment12Total']);
+const CURRENCY_FIELDS = new Set(['rentAmount']);
 
 function joinParts(parts, separator = ', ') {
   return parts.map((item) => item?.trim()).filter(Boolean).join(separator);
@@ -90,6 +88,10 @@ function formatCurrencyInput(value) {
 function formatCurrencyInputOnBlur(value) {
   const numericValue = toNumber(value);
   return numericValue ? formatCurrency(numericValue).replace('R$', '').trim() : '';
+}
+
+function roundCurrency(value) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function formatPhone(value) {
@@ -148,9 +150,13 @@ function sanitizeFileName(value) {
 }
 
 function buildRecord(formValues) {
-  const payment5Total = toNumber(formValues.payment5Total);
-  const payment12Total = toNumber(formValues.payment12Total);
   const rentAmount = toNumber(formValues.rentAmount);
+  const insuranceAmount = roundCurrency(rentAmount * 1.2);
+  const cashAmount = insuranceAmount;
+  const payment5Total = roundCurrency(insuranceAmount * 1.1);
+  const payment12Total = roundCurrency(insuranceAmount * 1.15);
+  const payment5Installment = roundCurrency(payment5Total / 5);
+  const payment12Installment = roundCurrency(payment12Total / 12);
   const roleLabel = formValues.roleType === 'imobiliaria' ? 'Imobiliária' : 'Corretor';
   const applicantDocumentType = formValues.applicantDocumentType === 'cnpj' ? 'cnpj' : 'cpf';
   const applicantDocumentLabel = applicantDocumentType.toUpperCase();
@@ -182,14 +188,18 @@ function buildRecord(formValues) {
     propertyAddress: [propertyLine1, propertyLine2].filter(Boolean).join('\n'),
     rentAmount,
     rentAmountFormatted: formatCurrency(rentAmount),
+    insuranceAmount,
+    insuranceAmountFormatted: formatCurrency(insuranceAmount),
+    cashAmount,
+    cashAmountFormatted: formatCurrency(cashAmount),
     payment5Total,
     payment5TotalFormatted: formatCurrency(payment5Total),
-    payment5Installment: payment5Total / 5,
-    payment5InstallmentFormatted: formatCurrency(payment5Total / 5),
+    payment5Installment,
+    payment5InstallmentFormatted: formatCurrency(payment5Installment),
     payment12Total,
     payment12TotalFormatted: formatCurrency(payment12Total),
-    payment12Installment: payment12Total / 12,
-    payment12InstallmentFormatted: formatCurrency(payment12Total / 12),
+    payment12Installment,
+    payment12InstallmentFormatted: formatCurrency(payment12Installment),
     contacts: CONTACTS.map((contact) => ({ ...contact, phoneFormatted: formatPhone(contact.phone) })),
   };
 }
@@ -282,16 +292,14 @@ export default function App() {
     'analise-credito-one';
 
   const rentLine = record.rentAmount
-    ? `${record.rentAmountFormatted} taxas inclusas`
+    ? record.rentAmountFormatted
     : 'Informe o valor do aluguel';
-  const payment5TotalText = record.payment5Total ? record.payment5TotalFormatted : 'A informar';
-  const payment12TotalText = record.payment12Total ? record.payment12TotalFormatted : 'A informar';
-  const payment5InstallmentText = record.payment5Total
-    ? `5x de ${record.payment5InstallmentFormatted}`
-    : '5 parcelas';
-  const payment12InstallmentText = record.payment12Total
-    ? `12x de ${record.payment12InstallmentFormatted}`
-    : '12 parcelas';
+  const insuranceText = record.rentAmount ? record.insuranceAmountFormatted : 'A informar';
+  const cashText = record.rentAmount ? record.cashAmountFormatted : 'A informar';
+  const payment5TotalText = record.rentAmount ? record.payment5TotalFormatted : 'A informar';
+  const payment12TotalText = record.rentAmount ? record.payment12TotalFormatted : 'A informar';
+  const payment5InstallmentText = record.rentAmount ? record.payment5InstallmentFormatted : 'A informar';
+  const payment12InstallmentText = record.rentAmount ? record.payment12InstallmentFormatted : 'A informar';
 
   useEffect(() => {
     return () => {
@@ -376,9 +384,7 @@ export default function App() {
       !record.propertyStreet ||
       !record.propertyCity ||
       !record.propertyZip ||
-      !record.rentAmount ||
-      !record.payment5Total ||
-      !record.payment12Total
+      !record.rentAmount
     ) {
       setStatus('Preencha os campos obrigatórios.');
       return;
@@ -520,7 +526,7 @@ export default function App() {
               />
             </label>
 
-            <label className="field field-third">
+            <label className="field field-full">
               Valor do aluguel
               <input
                 name="rentAmount"
@@ -531,45 +537,25 @@ export default function App() {
                 placeholder="14.000,00"
               />
             </label>
-
-            <label className="field field-third">
-              Total à vista ou 5x
-              <input
-                name="payment5Total"
-                value={formValues.payment5Total}
-                onChange={handleFieldChange}
-                onBlur={handleFieldBlur}
-                inputMode="decimal"
-                placeholder="16.800,00"
-              />
-            </label>
-
-            <label className="field field-third">
-              Total em 12x
-              <input
-                name="payment12Total"
-                value={formValues.payment12Total}
-                onChange={handleFieldChange}
-                onBlur={handleFieldBlur}
-                inputMode="decimal"
-                placeholder="19.320,00"
-              />
-            </label>
           </div>
 
           <div className="review-strip">
             <div className="review-chip">
               <span>À vista</span>
-              <strong>{payment5TotalText}</strong>
-              <small>
-                {record.payment5Total ? `ou em 5x de ${record.payment5InstallmentFormatted} no cartão` : 'ou em 5x'}
-              </small>
+              <strong>{cashText}</strong>
+              <small>{record.rentAmount ? `seguro: ${insuranceText}` : 'seguro: A informar'}</small>
+            </div>
+
+            <div className="review-chip">
+              <span>Em 5x</span>
+              <strong>{payment5InstallmentText}</strong>
+              <small>{record.rentAmount ? `total de ${payment5TotalText}` : 'total a informar'}</small>
             </div>
 
             <div className="review-chip">
               <span>Em 12x</span>
-              <strong>{record.payment12Total ? record.payment12InstallmentFormatted : 'A informar'}</strong>
-              <small>{record.payment12Total ? `total de ${payment12TotalText}` : 'total a informar'}</small>
+              <strong>{payment12InstallmentText}</strong>
+              <small>{record.rentAmount ? `total de ${payment12TotalText}` : 'total a informar'}</small>
             </div>
           </div>
 
@@ -644,6 +630,7 @@ export default function App() {
                   tone="soft"
                 />
                 <PosterRow icon="money" eyebrow="Valor aluguel" value={rentLine} tone="soft" />
+                <PosterRow icon="card" eyebrow="Valor do seguro" value={insuranceText} tone="soft" />
               </div>
 
               <div className="payment-card">
@@ -657,14 +644,13 @@ export default function App() {
                 </div>
 
                 <PaymentItem
-                  primary={`À vista ${payment5TotalText} ou em 5x de ${
-                    record.payment5Installment ? record.payment5InstallmentFormatted : 'A informar'
-                  } no cartão`}
+                  primary={`À vista: ${cashText}`}
                 />
                 <PaymentItem
-                  primary={`Em 12x de ${
-                    record.payment12Installment ? record.payment12InstallmentFormatted : 'A informar'
-                  } no cartão, total de ${payment12TotalText}`}
+                  primary={`Em 5x no cartão: 5x de ${payment5InstallmentText}, total de ${payment5TotalText}`}
+                />
+                <PaymentItem
+                  primary={`Em 12x no cartão: 12x de ${payment12InstallmentText}, total de ${payment12TotalText}`}
                 />
               </div>
 
