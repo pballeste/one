@@ -283,7 +283,10 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationKey, setCelebrationKey] = useState(0);
+  const [mobileSection, setMobileSection] = useState('form');
   const previewRef = useRef(null);
+  const formPanelRef = useRef(null);
+  const previewPanelRef = useRef(null);
   const celebrationTimeoutRef = useRef(null);
 
   const record = buildRecord(formValues);
@@ -307,6 +310,47 @@ export default function App() {
         window.clearTimeout(celebrationTimeoutRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      return undefined;
+    }
+
+    const sections = [
+      ['form', formPanelRef.current],
+      ['preview', previewPanelRef.current],
+    ].filter(([, node]) => node);
+
+    if (!sections.length) {
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const activeEntry = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+
+        if (!activeEntry) {
+          return;
+        }
+
+        const activeSection = sections.find(([, node]) => node === activeEntry.target)?.[0];
+
+        if (activeSection) {
+          setMobileSection(activeSection);
+        }
+      },
+      {
+        threshold: [0.24, 0.45, 0.66],
+        rootMargin: '-12% 0px -30% 0px',
+      },
+    );
+
+    sections.forEach(([, node]) => observer.observe(node));
+
+    return () => observer.disconnect();
   }, []);
 
   function handleFieldChange(event) {
@@ -376,6 +420,12 @@ export default function App() {
     }, 1500);
   }
 
+  function scrollToMobileSection(section) {
+    const nextRef = section === 'preview' ? previewPanelRef : formPanelRef;
+    setMobileSection(section);
+    nextRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   async function handleGenerateFiles() {
     if (
       !record.roleName ||
@@ -428,6 +478,12 @@ export default function App() {
       }
 
       triggerCelebration();
+
+      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches) {
+        requestAnimationFrame(() => {
+          scrollToMobileSection('preview');
+        });
+      }
     } catch (error) {
       setStatus(`Não foi possível gerar o arquivo: ${error.message}`);
     } finally {
@@ -437,8 +493,25 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <div className="mobile-nav" aria-label="Navegação móvel">
+        <button
+          type="button"
+          className={`mobile-nav-chip ${mobileSection === 'form' ? 'is-active' : ''}`}
+          onClick={() => scrollToMobileSection('form')}
+        >
+          Dados
+        </button>
+        <button
+          type="button"
+          className={`mobile-nav-chip ${mobileSection === 'preview' ? 'is-active' : ''}`}
+          onClick={() => scrollToMobileSection('preview')}
+        >
+          Prévia
+        </button>
+      </div>
+
       <main className="workspace">
-        <section className="form-panel">
+        <section ref={formPanelRef} className="form-panel panel-anchor">
           <div className="form-head">
             <img src={logo} alt="Logo ONE Fiança Locatícia" className="form-head-logo" />
             <div className="form-head-copy">
@@ -559,48 +632,19 @@ export default function App() {
             </div>
           </div>
 
-          <div className="actions">
-            <div className="action-stack">
-              <div className="format-switch" role="tablist" aria-label="Formato de saída">
-                <button
-                  type="button"
-                  className={`format-chip ${exportFormat === 'jpg' ? 'is-active' : ''}`}
-                  onClick={() => setExportFormat('jpg')}
-                >
-                  JPG
-                </button>
-                <button
-                  type="button"
-                  className={`format-chip ${exportFormat === 'pdf' ? 'is-active' : ''}`}
-                  onClick={() => setExportFormat('pdf')}
-                >
-                  PDF
-                </button>
-              </div>
-
-              <button
-                type="button"
-                className="primary-button"
-                onClick={handleGenerateFiles}
-                disabled={isGenerating}
-              >
-                {isGenerating ? 'Gerando...' : exportFormat === 'jpg' ? 'Gerar JPG' : 'Gerar PDF'}
-              </button>
-
-              <span className={`status-text ${status ? 'is-visible' : ''}`}>{status}</span>
-
-              <small className="export-hint">
-                {exportFormat === 'jpg'
-                  ? 'JPG recomendado para envio no WhatsApp.'
-                  : 'PDF para arquivo e impressão.'}
-              </small>
-
-              {showCelebration ? <Celebration key={celebrationKey} /> : null}
-            </div>
-          </div>
+          <ActionControls
+            className="actions actions-desktop"
+            exportFormat={exportFormat}
+            onExportFormatChange={setExportFormat}
+            isGenerating={isGenerating}
+            onGenerate={handleGenerateFiles}
+            status={status}
+            showCelebration={showCelebration}
+            celebrationKey={celebrationKey}
+          />
         </section>
 
-        <section className="preview-panel">
+        <section ref={previewPanelRef} className="preview-panel panel-anchor">
           <div className="preview-wrap">
             <div className="poster" ref={previewRef}>
               <div className="poster-glow" />
@@ -673,6 +717,67 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      <ActionControls
+        className="mobile-dock"
+        stackClassName="mobile-dock-card"
+        exportFormat={exportFormat}
+        onExportFormatChange={setExportFormat}
+        isGenerating={isGenerating}
+        onGenerate={handleGenerateFiles}
+        status={status}
+        showCelebration={showCelebration}
+        celebrationKey={celebrationKey}
+      />
+    </div>
+  );
+}
+
+function ActionControls({
+  className = '',
+  stackClassName = 'action-stack',
+  exportFormat,
+  onExportFormatChange,
+  isGenerating,
+  onGenerate,
+  status,
+  showCelebration,
+  celebrationKey,
+}) {
+  return (
+    <div className={className}>
+      <div className={stackClassName}>
+        <div className="format-switch" role="tablist" aria-label="Formato de saída">
+          <button
+            type="button"
+            className={`format-chip ${exportFormat === 'jpg' ? 'is-active' : ''}`}
+            onClick={() => onExportFormatChange('jpg')}
+          >
+            JPG
+          </button>
+          <button
+            type="button"
+            className={`format-chip ${exportFormat === 'pdf' ? 'is-active' : ''}`}
+            onClick={() => onExportFormatChange('pdf')}
+          >
+            PDF
+          </button>
+        </div>
+
+        <button type="button" className="primary-button" onClick={onGenerate} disabled={isGenerating}>
+          {isGenerating ? 'Gerando...' : exportFormat === 'jpg' ? 'Gerar JPG' : 'Gerar PDF'}
+        </button>
+
+        <span className={`status-text ${status ? 'is-visible' : ''}`}>{status}</span>
+
+        <small className="export-hint">
+          {exportFormat === 'jpg'
+            ? 'JPG recomendado para envio no WhatsApp.'
+            : 'PDF para arquivo e impressão.'}
+        </small>
+
+        {showCelebration ? <Celebration key={celebrationKey} /> : null}
+      </div>
     </div>
   );
 }
