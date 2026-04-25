@@ -37,6 +37,8 @@ const INITIAL_FORM = {
 };
 
 const CURRENCY_FIELDS = new Set(['rentAmount']);
+const POSTER_BASE_WIDTH = 560;
+const POSTER_BASE_HEIGHT = Math.round((POSTER_BASE_WIDTH * 1491) / 1055);
 
 function joinParts(parts, separator = ', ') {
   return parts.map((item) => item?.trim()).filter(Boolean).join(separator);
@@ -276,6 +278,38 @@ async function saveOutputRecord(baseName, fileBlob, extension, mimeType, record)
   await saveFile(`${baseName}.${extension}`, fileBlob, mimeType);
 }
 
+function createExportPoster(sourceNode) {
+  const stage = document.createElement('div');
+  stage.className = 'poster-export-stage';
+  Object.assign(stage.style, {
+    position: 'fixed',
+    left: '-20000px',
+    top: '0',
+    width: `${POSTER_BASE_WIDTH}px`,
+    height: `${POSTER_BASE_HEIGHT}px`,
+    padding: '0',
+    margin: '0',
+    pointerEvents: 'none',
+    opacity: '1',
+    overflow: 'hidden',
+    zIndex: '-1',
+    background: '#081235',
+  });
+
+  const clone = sourceNode.cloneNode(true);
+  clone.style.width = `${POSTER_BASE_WIDTH}px`;
+  clone.style.height = `${POSTER_BASE_HEIGHT}px`;
+  clone.style.maxWidth = 'none';
+  clone.style.transform = 'none';
+  clone.style.transformOrigin = 'top center';
+  clone.style.aspectRatio = '1055 / 1491';
+
+  stage.appendChild(clone);
+  document.body.appendChild(stage);
+
+  return { stage, clone };
+}
+
 export default function App() {
   const [formValues, setFormValues] = useState(INITIAL_FORM);
   const [exportFormat, setExportFormat] = useState('jpg');
@@ -284,7 +318,9 @@ export default function App() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationKey, setCelebrationKey] = useState(0);
   const [mobileSection, setMobileSection] = useState('form');
+  const [previewScale, setPreviewScale] = useState(1);
   const previewRef = useRef(null);
+  const previewStageRef = useRef(null);
   const formPanelRef = useRef(null);
   const previewPanelRef = useRef(null);
   const celebrationTimeoutRef = useRef(null);
@@ -310,6 +346,30 @@ export default function App() {
         window.clearTimeout(celebrationTimeoutRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !previewStageRef.current) {
+      return undefined;
+    }
+
+    const stage = previewStageRef.current;
+
+    const updateScale = () => {
+      const nextScale = Math.min(1, stage.clientWidth / POSTER_BASE_WIDTH);
+      setPreviewScale(nextScale || 1);
+    };
+
+    updateScale();
+
+    if ('ResizeObserver' in window) {
+      const observer = new ResizeObserver(() => updateScale());
+      observer.observe(stage);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
   }, []);
 
   useEffect(() => {
@@ -448,33 +508,46 @@ export default function App() {
         import('jspdf'),
       ]);
 
-      const posterWidth = previewRef.current.offsetWidth;
-      const posterHeight = previewRef.current.offsetHeight;
+      const { stage: exportStage, clone: exportPoster } = createExportPoster(previewRef.current);
       const scale = exportFormat === 'jpg' ? 1.9 : 1.55;
 
-      const canvas = await html2canvas(previewRef.current, {
-        scale,
-        backgroundColor: '#081235',
-        useCORS: true,
-      });
+      try {
+        if (document.fonts?.ready) {
+          await document.fonts.ready;
+        }
 
-      if (exportFormat === 'jpg') {
-        const jpgBlob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
-        await saveOutputRecord(fileBaseName, jpgBlob, 'jpg', 'image/jpeg', record);
-        setStatus('Imagem gerada');
-      } else {
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'pt',
-          format: [posterWidth, posterHeight],
-          compress: true,
+        const canvas = await html2canvas(exportPoster, {
+          scale,
+          backgroundColor: '#081235',
+          useCORS: true,
+          width: POSTER_BASE_WIDTH,
+          height: POSTER_BASE_HEIGHT,
+          windowWidth: POSTER_BASE_WIDTH,
+          windowHeight: POSTER_BASE_HEIGHT,
+          scrollX: 0,
+          scrollY: 0,
         });
 
-        const imageData = canvas.toDataURL('image/png');
-        pdf.addImage(imageData, 'PNG', 0, 0, posterWidth, posterHeight, undefined, 'FAST');
+        if (exportFormat === 'jpg') {
+          const jpgBlob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
+          await saveOutputRecord(fileBaseName, jpgBlob, 'jpg', 'image/jpeg', record);
+          setStatus('Imagem gerada');
+        } else {
+          const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'pt',
+            format: [POSTER_BASE_WIDTH, POSTER_BASE_HEIGHT],
+            compress: true,
+          });
 
-        await saveOutputRecord(fileBaseName, pdf.output('blob'), 'pdf', 'application/pdf', record);
-        setStatus('PDF gerado');
+          const imageData = canvas.toDataURL('image/png');
+          pdf.addImage(imageData, 'PNG', 0, 0, POSTER_BASE_WIDTH, POSTER_BASE_HEIGHT, undefined, 'FAST');
+
+          await saveOutputRecord(fileBaseName, pdf.output('blob'), 'pdf', 'application/pdf', record);
+          setStatus('PDF gerado');
+        }
+      } finally {
+        exportStage.remove();
       }
 
       triggerCelebration();
@@ -646,7 +719,20 @@ export default function App() {
 
         <section ref={previewPanelRef} className="preview-panel panel-anchor">
           <div className="preview-wrap">
-            <div className="poster" ref={previewRef}>
+            <div
+              ref={previewStageRef}
+              className="preview-stage"
+              style={{ '--preview-height': `${POSTER_BASE_HEIGHT * previewScale}px` }}
+            >
+              <div
+                className="poster"
+                ref={previewRef}
+                style={{
+                  width: `${POSTER_BASE_WIDTH}px`,
+                  height: `${POSTER_BASE_HEIGHT}px`,
+                  transform: `scale(${previewScale})`,
+                }}
+              >
               <div className="poster-glow" />
               <img className="poster-logo" src={logo} alt="Logo ONE Fiança Locatícia" />
 
@@ -713,6 +799,7 @@ export default function App() {
               </div>
 
               <div className="poster-arc" />
+              </div>
             </div>
           </div>
         </section>
