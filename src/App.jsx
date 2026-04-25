@@ -286,23 +286,23 @@ function createExportPoster(sourceNode) {
     left: '-20000px',
     top: '0',
     width: `${POSTER_BASE_WIDTH}px`,
-    height: `${POSTER_BASE_HEIGHT}px`,
+    minHeight: `${POSTER_BASE_HEIGHT}px`,
     padding: '0',
     margin: '0',
     pointerEvents: 'none',
     opacity: '1',
-    overflow: 'hidden',
+    overflow: 'visible',
     zIndex: '-1',
     background: '#081235',
   });
 
   const clone = sourceNode.cloneNode(true);
   clone.style.width = `${POSTER_BASE_WIDTH}px`;
-  clone.style.height = `${POSTER_BASE_HEIGHT}px`;
+  clone.style.minHeight = `${POSTER_BASE_HEIGHT}px`;
+  clone.style.height = 'auto';
   clone.style.maxWidth = 'none';
   clone.style.transform = 'none';
   clone.style.transformOrigin = 'top center';
-  clone.style.aspectRatio = '1055 / 1491';
 
   stage.appendChild(clone);
   document.body.appendChild(stage);
@@ -319,6 +319,8 @@ export default function App() {
   const [celebrationKey, setCelebrationKey] = useState(0);
   const [mobileSection, setMobileSection] = useState('form');
   const [previewScale, setPreviewScale] = useState(1);
+  const [previewHeight, setPreviewHeight] = useState(POSTER_BASE_HEIGHT);
+  const [lastGeneratedFile, setLastGeneratedFile] = useState(null);
   const previewRef = useRef(null);
   const previewStageRef = useRef(null);
   const formPanelRef = useRef(null);
@@ -358,6 +360,9 @@ export default function App() {
     const updateScale = () => {
       const nextScale = Math.min(1, stage.clientWidth / POSTER_BASE_WIDTH);
       setPreviewScale(nextScale || 1);
+      if (previewRef.current) {
+        setPreviewHeight(Math.max(POSTER_BASE_HEIGHT, previewRef.current.scrollHeight));
+      }
     };
 
     updateScale();
@@ -365,6 +370,9 @@ export default function App() {
     if ('ResizeObserver' in window) {
       const observer = new ResizeObserver(() => updateScale());
       observer.observe(stage);
+      if (previewRef.current) {
+        observer.observe(previewRef.current);
+      }
       return () => observer.disconnect();
     }
 
@@ -486,6 +494,33 @@ export default function App() {
     nextRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  async function handleShareFile() {
+    if (!lastGeneratedFile || typeof navigator === 'undefined' || typeof File === 'undefined') {
+      return;
+    }
+
+    try {
+      const shareFile = new File([lastGeneratedFile.blob], lastGeneratedFile.name, {
+        type: lastGeneratedFile.mimeType,
+      });
+
+      if (!navigator.share || (navigator.canShare && !navigator.canShare({ files: [shareFile] }))) {
+        setStatus('Compartilhamento não disponível neste navegador.');
+        return;
+      }
+
+      await navigator.share({
+        title: 'Análise de crédito aprovada',
+        text: 'Arquivo gerado pela ONE Fiança Locatícia.',
+        files: [shareFile],
+      });
+    } catch (error) {
+      if (error?.name !== 'AbortError') {
+        setStatus(`Não foi possível compartilhar: ${error.message}`);
+      }
+    }
+  }
+
   async function handleGenerateFiles() {
     if (
       !record.roleName ||
@@ -516,34 +551,48 @@ export default function App() {
           await document.fonts.ready;
         }
 
+        const exportHeight = Math.max(POSTER_BASE_HEIGHT, exportPoster.scrollHeight);
+        exportStage.style.height = `${exportHeight}px`;
+
         const canvas = await html2canvas(exportPoster, {
           scale,
           backgroundColor: '#081235',
           useCORS: true,
           width: POSTER_BASE_WIDTH,
-          height: POSTER_BASE_HEIGHT,
+          height: exportHeight,
           windowWidth: POSTER_BASE_WIDTH,
-          windowHeight: POSTER_BASE_HEIGHT,
+          windowHeight: exportHeight,
           scrollX: 0,
           scrollY: 0,
         });
 
         if (exportFormat === 'jpg') {
           const jpgBlob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
+          setLastGeneratedFile({
+            blob: jpgBlob,
+            name: `${fileBaseName}.jpg`,
+            mimeType: 'image/jpeg',
+          });
           await saveOutputRecord(fileBaseName, jpgBlob, 'jpg', 'image/jpeg', record);
           setStatus('Imagem gerada');
         } else {
           const pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'pt',
-            format: [POSTER_BASE_WIDTH, POSTER_BASE_HEIGHT],
+            format: [POSTER_BASE_WIDTH, exportHeight],
             compress: true,
           });
 
           const imageData = canvas.toDataURL('image/png');
-          pdf.addImage(imageData, 'PNG', 0, 0, POSTER_BASE_WIDTH, POSTER_BASE_HEIGHT, undefined, 'FAST');
+          pdf.addImage(imageData, 'PNG', 0, 0, POSTER_BASE_WIDTH, exportHeight, undefined, 'FAST');
 
-          await saveOutputRecord(fileBaseName, pdf.output('blob'), 'pdf', 'application/pdf', record);
+          const pdfBlob = pdf.output('blob');
+          setLastGeneratedFile({
+            blob: pdfBlob,
+            name: `${fileBaseName}.pdf`,
+            mimeType: 'application/pdf',
+          });
+          await saveOutputRecord(fileBaseName, pdfBlob, 'pdf', 'application/pdf', record);
           setStatus('PDF gerado');
         }
       } finally {
@@ -722,83 +771,83 @@ export default function App() {
             <div
               ref={previewStageRef}
               className="preview-stage"
-              style={{ '--preview-height': `${POSTER_BASE_HEIGHT * previewScale}px` }}
+              style={{ '--preview-height': `${previewHeight * previewScale}px` }}
             >
               <div
                 className="poster"
                 ref={previewRef}
                 style={{
                   width: `${POSTER_BASE_WIDTH}px`,
-                  height: `${POSTER_BASE_HEIGHT}px`,
+                  minHeight: `${POSTER_BASE_HEIGHT}px`,
                   transform: `scale(${previewScale})`,
                 }}
               >
-              <div className="poster-glow" />
-              <img className="poster-logo" src={logo} alt="Logo ONE Fiança Locatícia" />
+                <div className="poster-glow" />
+                <img className="poster-logo" src={logo} alt="Logo ONE Fiança Locatícia" />
 
-              <div className="poster-title">ANÁLISE DE CRÉDITO APROVADA</div>
+                <div className="poster-title">ANÁLISE DE CRÉDITO APROVADA</div>
 
-              <div className="poster-info-card">
-                <PosterRow
-                  icon="user"
-                  value={`${record.roleLabel}: ${record.roleName || `Nome do ${record.roleLabel.toLowerCase()}`}`}
-                />
-                <PosterRow
-                  icon="shield"
-                  eyebrow="Cadastro aprovado em nome de"
-                  value={record.applicantName || 'Nome do cliente'}
-                />
-                <PosterRow
-                  icon="document"
-                  eyebrow={record.applicantDocumentLabel}
-                  value={record.applicantDocument || `${record.applicantDocumentLabel} do cliente`}
-                />
-                <PosterRow
-                  icon="home"
-                  eyebrow="Dados do Imóvel"
-                  value={record.propertyAddress || 'Endereço do imóvel'}
-                  tone="soft"
-                />
-                <PosterRow icon="money" eyebrow="Valor aluguel" value={rentLine} tone="soft" />
-                <PosterRow icon="card" eyebrow="Valor do seguro" value={insuranceText} tone="soft" />
-              </div>
-
-              <div className="payment-card">
-                <div className="payment-heading">
-                  <div className="payment-line" />
-                  <div className="payment-title">
-                    <Icon name="card" />
-                    <span>FORMAS DE PAGAMENTO</span>
-                  </div>
-                  <div className="payment-line" />
+                <div className="poster-info-card">
+                  <PosterRow
+                    icon="user"
+                    value={`${record.roleLabel}: ${record.roleName || `Nome do ${record.roleLabel.toLowerCase()}`}`}
+                  />
+                  <PosterRow
+                    icon="shield"
+                    eyebrow="Cadastro aprovado em nome de"
+                    value={record.applicantName || 'Nome do cliente'}
+                  />
+                  <PosterRow
+                    icon="document"
+                    eyebrow={record.applicantDocumentLabel}
+                    value={record.applicantDocument || `${record.applicantDocumentLabel} do cliente`}
+                  />
+                  <PosterRow
+                    icon="home"
+                    eyebrow="Dados do Imóvel"
+                    value={record.propertyAddress || 'Endereço do imóvel'}
+                    tone="soft"
+                  />
+                  <PosterRow icon="money" eyebrow="Valor aluguel" value={rentLine} tone="soft" />
+                  <PosterRow icon="card" eyebrow="Valor do seguro" value={insuranceText} tone="soft" />
                 </div>
 
-                <PaymentItem
-                  primary={`À vista: ${cashText}`}
-                />
-                <PaymentItem
-                  primary={`Em 5x no cartão: 5x de ${payment5InstallmentText}, total de ${payment5TotalText}`}
-                />
-                <PaymentItem
-                  primary={`Em 12x no cartão: 12x de ${payment12InstallmentText}, total de ${payment12TotalText}`}
-                />
-              </div>
-
-              <div className="contact-bar">
-                {record.contacts.map((contact) => (
-                  <div key={contact.state} className="contact-item">
-                    <div className="contact-icon">
-                      <Icon name="phone" />
+                <div className="payment-card">
+                  <div className="payment-heading">
+                    <div className="payment-line" />
+                    <div className="payment-title">
+                      <Icon name="card" />
+                      <span>FORMAS DE PAGAMENTO</span>
                     </div>
-                    <div className="contact-copy">
-                      <span>{contact.state}</span>
-                      <strong>{contact.phoneFormatted}</strong>
-                    </div>
+                    <div className="payment-line" />
                   </div>
-                ))}
-              </div>
 
-              <div className="poster-arc" />
+                  <PaymentItem
+                    primary={`À vista: ${cashText}`}
+                  />
+                  <PaymentItem
+                    primary={`Em 5x no cartão: 5x de ${payment5InstallmentText}, total de ${payment5TotalText}`}
+                  />
+                  <PaymentItem
+                    primary={`Em 12x no cartão: 12x de ${payment12InstallmentText}, total de ${payment12TotalText}`}
+                  />
+                </div>
+
+                <div className="contact-bar">
+                  {record.contacts.map((contact) => (
+                    <div key={contact.state} className="contact-item">
+                      <div className="contact-icon">
+                        <Icon name="phone" />
+                      </div>
+                      <div className="contact-copy">
+                        <span>{contact.state}</span>
+                        <strong>{contact.phoneFormatted}</strong>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="poster-arc" />
               </div>
             </div>
           </div>
@@ -812,6 +861,17 @@ export default function App() {
         onExportFormatChange={setExportFormat}
         isGenerating={isGenerating}
         onGenerate={handleGenerateFiles}
+        onShare={handleShareFile}
+        canShare={Boolean(
+          lastGeneratedFile &&
+            typeof navigator !== 'undefined' &&
+            typeof navigator.share === 'function' &&
+            typeof File !== 'undefined' &&
+            (!navigator.canShare ||
+              navigator.canShare({
+                files: [new File([lastGeneratedFile.blob], lastGeneratedFile.name, { type: lastGeneratedFile.mimeType })],
+              }))
+        )}
         status={status}
         showCelebration={showCelebration}
         celebrationKey={celebrationKey}
@@ -827,6 +887,8 @@ function ActionControls({
   onExportFormatChange,
   isGenerating,
   onGenerate,
+  onShare,
+  canShare = false,
   status,
   showCelebration,
   celebrationKey,
@@ -854,6 +916,12 @@ function ActionControls({
         <button type="button" className="primary-button" onClick={onGenerate} disabled={isGenerating}>
           {isGenerating ? 'Gerando...' : exportFormat === 'jpg' ? 'Gerar JPG' : 'Gerar PDF'}
         </button>
+
+        {canShare ? (
+          <button type="button" className="secondary-button" onClick={onShare}>
+            Compartilhar
+          </button>
+        ) : null}
 
         <span className={`status-text ${status ? 'is-visible' : ''}`}>{status}</span>
 
