@@ -310,6 +310,26 @@ function createExportPoster(sourceNode) {
   return { stage, clone };
 }
 
+function waitForNextFrame() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
+
+function getPosterExportHeight(stage, poster) {
+  return Math.ceil(
+    Math.max(
+      POSTER_BASE_HEIGHT,
+      stage.scrollHeight,
+      stage.offsetHeight,
+      poster.scrollHeight,
+      poster.offsetHeight,
+      poster.clientHeight,
+      poster.getBoundingClientRect().height,
+    ),
+  );
+}
+
 export default function App() {
   const [formValues, setFormValues] = useState(INITIAL_FORM);
   const [status, setStatus] = useState('');
@@ -519,10 +539,18 @@ export default function App() {
           await document.fonts.ready;
         }
 
-        const exportHeight = Math.max(POSTER_BASE_HEIGHT, exportPoster.scrollHeight);
-        exportStage.style.height = `${exportHeight}px`;
+        await waitForNextFrame();
+        await waitForNextFrame();
 
-        const canvas = await html2canvas(exportPoster, {
+        const exportHeight = getPosterExportHeight(exportStage, exportPoster);
+        exportStage.style.height = `${exportHeight}px`;
+        exportStage.style.minHeight = `${exportHeight}px`;
+        exportPoster.style.height = `${exportHeight}px`;
+        exportPoster.style.minHeight = `${exportHeight}px`;
+
+        await waitForNextFrame();
+
+        const canvas = await html2canvas(exportStage, {
           scale,
           backgroundColor: '#081235',
           useCORS: true,
