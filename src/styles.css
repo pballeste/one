@@ -253,31 +253,6 @@ textarea {
   gap: 10px;
 }
 
-.format-switch {
-  display: inline-flex;
-  justify-self: center;
-  padding: 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 202, 58, 0.15);
-}
-
-.format-chip {
-  border: 0;
-  min-width: 76px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-muted);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.format-chip.is-active {
-  background: linear-gradient(90deg, rgba(244, 195, 56, 0.92), rgba(255, 222, 89, 0.92));
-  color: #081235;
-}
-
 .primary-button {
   border: 0;
   border-radius: 999px;
@@ -288,17 +263,6 @@ textarea {
   font-size: 1.04rem;
   cursor: pointer;
   box-shadow: 0 12px 34px rgba(247, 168, 35, 0.26);
-}
-
-.secondary-button {
-  border: 1px solid rgba(255, 202, 58, 0.34);
-  border-radius: 999px;
-  padding: 13px 18px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-main);
-  font-weight: 800;
-  font-size: 0.98rem;
-  cursor: pointer;
 }
 
 .primary-button:disabled {
@@ -322,12 +286,6 @@ textarea {
 
 .status-text.is-visible {
   opacity: 1;
-}
-
-.export-hint {
-  justify-self: center;
-  color: var(--text-muted);
-  font-size: 0.82rem;
 }
 
 .celebration {

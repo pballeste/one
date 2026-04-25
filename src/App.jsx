@@ -312,7 +312,6 @@ function createExportPoster(sourceNode) {
 
 export default function App() {
   const [formValues, setFormValues] = useState(INITIAL_FORM);
-  const [exportFormat, setExportFormat] = useState('jpg');
   const [status, setStatus] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
@@ -320,7 +319,6 @@ export default function App() {
   const [mobileSection, setMobileSection] = useState('form');
   const [previewScale, setPreviewScale] = useState(1);
   const [previewHeight, setPreviewHeight] = useState(POSTER_BASE_HEIGHT);
-  const [lastGeneratedFile, setLastGeneratedFile] = useState(null);
   const previewRef = useRef(null);
   const previewStageRef = useRef(null);
   const formPanelRef = useRef(null);
@@ -494,33 +492,6 @@ export default function App() {
     nextRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  async function handleShareFile() {
-    if (!lastGeneratedFile || typeof navigator === 'undefined' || typeof File === 'undefined') {
-      return;
-    }
-
-    try {
-      const shareFile = new File([lastGeneratedFile.blob], lastGeneratedFile.name, {
-        type: lastGeneratedFile.mimeType,
-      });
-
-      if (!navigator.share || (navigator.canShare && !navigator.canShare({ files: [shareFile] }))) {
-        setStatus('Compartilhamento não disponível neste navegador.');
-        return;
-      }
-
-      await navigator.share({
-        title: 'Análise de crédito aprovada',
-        text: 'Arquivo gerado pela ONE Fiança Locatícia.',
-        files: [shareFile],
-      });
-    } catch (error) {
-      if (error?.name !== 'AbortError') {
-        setStatus(`Não foi possível compartilhar: ${error.message}`);
-      }
-    }
-  }
-
   async function handleGenerateFiles() {
     if (
       !record.roleName ||
@@ -537,14 +508,11 @@ export default function App() {
 
     try {
       setIsGenerating(true);
-      setStatus('Gerando...');
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ]);
+      setStatus('Preparando imagem...');
+      const { default: html2canvas } = await import('html2canvas');
 
       const { stage: exportStage, clone: exportPoster } = createExportPoster(previewRef.current);
-      const scale = exportFormat === 'jpg' ? 1.9 : 1.55;
+      const scale = 1.9;
 
       try {
         if (document.fonts?.ready) {
@@ -566,34 +534,31 @@ export default function App() {
           scrollY: 0,
         });
 
-        if (exportFormat === 'jpg') {
-          const jpgBlob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
-          setLastGeneratedFile({
-            blob: jpgBlob,
-            name: `${fileBaseName}.jpg`,
-            mimeType: 'image/jpeg',
+        const jpgBlob = await canvasToBlob(canvas, 'image/jpeg', 0.92);
+        const shareSupported =
+          typeof navigator !== 'undefined' &&
+          typeof navigator.share === 'function' &&
+          typeof File !== 'undefined';
+
+        if (shareSupported) {
+          const shareFile = new File([jpgBlob], `${fileBaseName}.jpg`, {
+            type: 'image/jpeg',
           });
-          await saveOutputRecord(fileBaseName, jpgBlob, 'jpg', 'image/jpeg', record);
-          setStatus('Imagem gerada');
+          const canShareFile = !navigator.canShare || navigator.canShare({ files: [shareFile] });
+
+          if (canShareFile) {
+            await navigator.share({
+              files: [shareFile],
+            });
+            persistRecord(record);
+            setStatus('Imagem compartilhada');
+          } else {
+            await saveOutputRecord(fileBaseName, jpgBlob, 'jpg', 'image/jpeg', record);
+            setStatus('Imagem baixada');
+          }
         } else {
-          const pdf = new jsPDF({
-            orientation: 'portrait',
-            unit: 'pt',
-            format: [POSTER_BASE_WIDTH, exportHeight],
-            compress: true,
-          });
-
-          const imageData = canvas.toDataURL('image/png');
-          pdf.addImage(imageData, 'PNG', 0, 0, POSTER_BASE_WIDTH, exportHeight, undefined, 'FAST');
-
-          const pdfBlob = pdf.output('blob');
-          setLastGeneratedFile({
-            blob: pdfBlob,
-            name: `${fileBaseName}.pdf`,
-            mimeType: 'application/pdf',
-          });
-          await saveOutputRecord(fileBaseName, pdfBlob, 'pdf', 'application/pdf', record);
-          setStatus('PDF gerado');
+          await saveOutputRecord(fileBaseName, jpgBlob, 'jpg', 'image/jpeg', record);
+          setStatus('Imagem baixada');
         }
       } finally {
         exportStage.remove();
@@ -607,7 +572,11 @@ export default function App() {
         });
       }
     } catch (error) {
-      setStatus(`Não foi possível gerar o arquivo: ${error.message}`);
+      if (error?.name === 'AbortError') {
+        setStatus('');
+      } else {
+        setStatus(`Não foi possível compartilhar: ${error.message}`);
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -756,8 +725,6 @@ export default function App() {
 
           <ActionControls
             className="actions actions-desktop"
-            exportFormat={exportFormat}
-            onExportFormatChange={setExportFormat}
             isGenerating={isGenerating}
             onGenerate={handleGenerateFiles}
             status={status}
@@ -857,21 +824,8 @@ export default function App() {
       <ActionControls
         className="mobile-dock"
         stackClassName="mobile-dock-card"
-        exportFormat={exportFormat}
-        onExportFormatChange={setExportFormat}
         isGenerating={isGenerating}
         onGenerate={handleGenerateFiles}
-        onShare={handleShareFile}
-        canShare={Boolean(
-          lastGeneratedFile &&
-            typeof navigator !== 'undefined' &&
-            typeof navigator.share === 'function' &&
-            typeof File !== 'undefined' &&
-            (!navigator.canShare ||
-              navigator.canShare({
-                files: [new File([lastGeneratedFile.blob], lastGeneratedFile.name, { type: lastGeneratedFile.mimeType })],
-              }))
-        )}
         status={status}
         showCelebration={showCelebration}
         celebrationKey={celebrationKey}
@@ -883,12 +837,8 @@ export default function App() {
 function ActionControls({
   className = '',
   stackClassName = 'action-stack',
-  exportFormat,
-  onExportFormatChange,
   isGenerating,
   onGenerate,
-  onShare,
-  canShare = false,
   status,
   showCelebration,
   celebrationKey,
@@ -896,40 +846,11 @@ function ActionControls({
   return (
     <div className={className}>
       <div className={stackClassName}>
-        <div className="format-switch" role="tablist" aria-label="Formato de saída">
-          <button
-            type="button"
-            className={`format-chip ${exportFormat === 'jpg' ? 'is-active' : ''}`}
-            onClick={() => onExportFormatChange('jpg')}
-          >
-            JPG
-          </button>
-          <button
-            type="button"
-            className={`format-chip ${exportFormat === 'pdf' ? 'is-active' : ''}`}
-            onClick={() => onExportFormatChange('pdf')}
-          >
-            PDF
-          </button>
-        </div>
-
         <button type="button" className="primary-button" onClick={onGenerate} disabled={isGenerating}>
-          {isGenerating ? 'Gerando...' : exportFormat === 'jpg' ? 'Gerar JPG' : 'Gerar PDF'}
+          {isGenerating ? 'Preparando...' : 'Compartilhar'}
         </button>
 
-        {canShare ? (
-          <button type="button" className="secondary-button" onClick={onShare}>
-            Compartilhar
-          </button>
-        ) : null}
-
         <span className={`status-text ${status ? 'is-visible' : ''}`}>{status}</span>
-
-        <small className="export-hint">
-          {exportFormat === 'jpg'
-            ? 'JPG recomendado para envio no WhatsApp.'
-            : 'PDF para arquivo e impressão.'}
-        </small>
 
         {showCelebration ? <Celebration key={celebrationKey} /> : null}
       </div>
